@@ -1,0 +1,27 @@
+{
+  "name": "UR ExamLab — Digital Exam-Readiness & Practice Platform",
+  "short_name": "UR ExamLab",
+  "description": "Past papers, timed mock exams and the MIFOTRA simulator for University of Rwanda students.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f8f7",
+  "theme_color": "#138abb",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/UR logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/UR logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "en",
+  "dir": "ltr"
+}
