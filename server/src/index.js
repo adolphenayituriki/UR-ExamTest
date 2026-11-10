@@ -19,6 +19,7 @@ import analyticsRoutes from './routes/analytics.js';
 import pastPaperRoutes from './routes/pastPapers.js';
 import credentialRoutes from './routes/credentials.js';
 import literacyRoutes from './routes/literacy.js';
+import landingRoutes from './routes/landing.js';
 import { sweepExpiredSessions } from './services/sessionService.js';
 
 const app = express();
@@ -71,6 +72,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/past-papers', pastPaperRoutes);
 app.use('/api/credentials', credentialRoutes);
 app.use('/api/literacy', literacyRoutes);
+app.use('/api/landing', landingRoutes);
 
 setupSwagger(app);
 

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getErrorMessage } from '../api/client.js';
 import Logo from '../components/Logo.jsx';
@@ -21,158 +21,34 @@ import {
   FaAward,
 } from 'react-icons/fa6';
 
-const DEMO_ACCOUNTS = [
-  {
-    reg: '223452022',
-    password: 'DemoPass1',
-    name: 'NAYITURIKI Adolphe',
-    detail: 'Software Engineering · Year 4',
-    note: 'Full history and results',
-    avatar: 'NA',
-  },
-  {
-    reg: '233462023',
-    password: 'DemoPass2',
-    name: 'MUKAMANA Alice',
-    detail: 'Software Engineering · Year 3',
-    note: 'Year 3 dashboard',
-    avatar: 'MA',
-  },
-  {
-    reg: '243472024',
-    password: 'DemoPass3',
-    name: 'HABIMANA Eric',
-    detail: 'Software Engineering · Year 2',
-    note: 'Practice and mocks',
-    avatar: 'HE',
-  },
-  {
-    reg: '990012020',
-    password: 'DemoPass6',
-    name: 'KAMIKAZI Claudine',
-    detail: 'Inactive enrollment',
-    note: 'Shows an inactive record',
-    avatar: 'KC',
-  },
-];
+const ICON_MAP = {
+  FaClock,
+  FaCheckDouble,
+  FaBook,
+  FaGraduationCap,
+  FaUsers,
+  FaLightbulb,
+  FaUserTie,
+  FaUserGraduate,
+  FaLock,
+  FaShield,
+  FaBolt,
+  FaBrain,
+  FaAward,
+};
 
-const STAFF_DEMO_ACCOUNTS = [
-  {
-    email: 'jean.uwizeyimana@ur.ac.rw',
-    password: 'StaffPass1',
-    name: 'Dr. UWIZEYIMANA Jean',
-    detail: 'Lecturer · Computer Science',
-    note: 'Manage courses & assessments',
-    avatar: 'UJ',
-  },
-  {
-    email: 'grace.mukeshimana@ur.ac.rw',
-    password: 'StaffPass2',
-    name: 'Prof. MUKESHIMANA Grace',
-    detail: 'Senior Lecturer · Software Engineering',
-    note: 'Review student analytics',
-    avatar: 'MG',
-  },
-];
-
-const STEPS = [
-  {
-    step: '01',
-    title: 'Choose a course',
-    text: 'Browse modules for your year and programme. Past papers and practice exams are organised by department.',
-    icon: FaGraduationCap,
-    color: 'var(--brand)',
-    bgColor: 'var(--brand-soft)',
-  },
-  {
-    step: '02',
-    title: 'Practise or take a mock',
-    text: 'Timed questions with instant marking. AI-powered hints guide your method without giving answers.',
-    icon: FaClock,
-    color: 'var(--accent)',
-    bgColor: 'var(--accent-soft)',
-  },
-  {
-    step: '03',
-    title: 'Fix weak topics',
-    text: 'Review detailed feedback and focus your revision. Track progress across attempts and topics.',
-    icon: FaBook,
-    color: 'var(--green)',
-    bgColor: 'var(--green-soft)',
-  },
-];
-
-const TRUST = [
-  { label: 'Timed practice', icon: FaClock },
-  { label: 'Instant marks', icon: FaCheckDouble },
-  { label: 'Revision focus', icon: FaBook },
-];
-
-const SUPPORT = [
-  {
-    title: 'Guided hints',
-    text: 'Get a nudge without the answer. Socratic AI hints explain the method and next step.',
-    icon: FaLightbulb,
-    color: 'var(--accent)',
-    bgColor: 'var(--accent-soft)',
-  },
-  {
-    title: 'Weak spot detection',
-    text: 'See which topics need more work. Analytics highlight low-scoring areas across attempts.',
-    icon: FaUsers,
-    color: 'var(--brand)',
-    bgColor: 'var(--brand-soft)',
-  },
-  {
-    title: 'Fresh questions',
-    text: 'New numbers each attempt, so you learn the method — not just memorise answers.',
-    icon: FaBrain,
-    color: 'var(--green)',
-    bgColor: 'var(--green-soft)',
-  },
-];
-
-const FEATURES = [
-  {
-    title: 'Server-timed exams',
-    text: 'Clock runs on the server — no client-side manipulation possible.',
-    icon: FaClock,
-    color: 'var(--brand)',
-  },
-  {
-    title: 'Integrity monitoring',
-    text: 'Tab-switch detection with configurable strikes before auto-submit.',
-    icon: FaShield,
-    color: 'var(--red)',
-  },
-  {
-    title: 'AI-powered grading',
-    text: 'Essay and short-answer responses graded by LLM with rubric alignment.',
-    icon: FaBrain,
-    color: 'var(--accent)',
-  },
-  {
-    title: 'Instant certificates',
-    text: 'Verifiable completion badges and PDF certificates for literacy tracks.',
-    icon: FaAward,
-    color: 'var(--green)',
-  },
-  {
-    title: 'Offline-ready PWA',
-    text: 'Install as an app. Past papers and literacy lessons cached for offline study.',
-    icon: FaBolt,
-    color: 'var(--purple)',
-  },
-  {
-    title: 'Accessibility first',
-    text: 'WCAG 2.1 AA compliant. Keyboard navigation, screen readers, high contrast.',
-    icon: FaUserGraduate,
-    color: 'var(--ink)',
-  },
-];
+function getIcon(iconName) {
+  return ICON_MAP[iconName] || FaClock;
+}
 
 function isNineDigits(value) {
   return /^\d{9}$/.test(String(value || '').trim());
+}
+
+function maskEmail(email) {
+  const [local, domain] = email.split('@');
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  return `${local[0]}${'•'.repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
 }
 
 export default function Landing() {
@@ -192,6 +68,31 @@ export default function Landing() {
   const [staffEmail, setStaffEmail] = useState('');
   const [staffPassword, setStaffPassword] = useState('');
   const [showNav, setShowNav] = useState(false);
+  const [landingData, setLandingData] = useState(null);
+  const [landingLoading, setLandingLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchLandingContent() {
+      try {
+        const response = await api.get('/landing');
+        setLandingData(response.data);
+      } catch (err) {
+        console.error('Failed to fetch landing content:', err);
+      } finally {
+        setLandingLoading(false);
+      }
+    }
+    fetchLandingContent();
+  }, []);
+
+  const trust = landingData?.trust || [];
+  const steps = landingData?.steps || [];
+  const features = landingData?.features || [];
+  const support = landingData?.support || [];
+  const demoAccounts = landingData?.demoAccounts || [];
+  const sections = landingData?.sections || [];
+  const footer = landingData?.footer || {};
+  const hero = landingData?.hero || {};
 
   async function signIn(reg, password) {
     setError('');
@@ -342,7 +243,17 @@ export default function Landing() {
     clearNotice();
   }
 
-  const currentDemoAccounts = userType === 'student' ? DEMO_ACCOUNTS : STAFF_DEMO_ACCOUNTS;
+  const currentDemoAccounts = demoAccounts.filter((acc) => acc.userType === userType);
+
+  if (landingLoading) {
+    return (
+      <div className="landing">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+          <span className="spinner" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="landing">
@@ -372,10 +283,13 @@ export default function Landing() {
             </button>
 
             <ul id="landing-nav-menu" className={`landing-nav-menu ${showNav ? 'open' : ''}`}>
-              <li><a href="#how-it-works" className="nav-link" onClick={() => setShowNav(false)}>How it works</a></li>
-              <li><a href="#features" className="nav-link" onClick={() => setShowNav(false)}>Features</a></li>
-              <li><a href="#demo" className="nav-link" onClick={() => setShowNav(false)}>Demo accounts</a></li>
-              <li><a href="#support" className="nav-link" onClick={() => setShowNav(false)}>Support</a></li>
+              {sections.map((section) => (
+                <li key={section.id}>
+                  <a href={`#${section.id}`} className="nav-link" onClick={() => setShowNav(false)}>
+                    {section.eyebrow.replace('How it works', 'How it works').replace('Platform features', 'Features').replace('Study support', 'Support').replace('Try it', 'Demo accounts')}
+                  </a>
+                </li>
+              ))}
             </ul>
           </nav>
 
@@ -415,25 +329,28 @@ export default function Landing() {
           <div className="hero-content">
             <div className="hero-copy">
               <div className="hero-copy-header">
-                <span className="eyebrow">University of Rwanda · ExamLab</span>
-                <h1 id="hero-title">Practise like it&apos;s exam day.</h1>
+                <span className="eyebrow">{hero.eyebrow || 'University of Rwanda · ExamLab'}</span>
+                <h1 id="hero-title">{hero.title || "Practise like it's exam day."}</h1>
               </div>
-              <p className="hero-lede">
-                Past papers, timed mock exams and instant feedback, built for UR students.
-              </p>
+              <p className="hero-lede">{hero.lede || 'Past papers, timed mock exams and instant feedback, built for UR students.'}</p>
               <div className="hero-trust-row">
                 <div className="hero-trust">
-                  {TRUST.map((item) => (
-                    <span key={item.label} className="hero-trust-item">
-                      <span className="hero-trust-icon"><item.icon aria-hidden="true" /></span>
-                      {item.label}
-                    </span>
-                  ))}
+                  {trust.map((item) => {
+                    const Icon = getIcon(item.icon);
+                    return (
+                      <span key={item.label} className="hero-trust-item">
+                        <span className="hero-trust-icon"><Icon aria-hidden="true" /></span>
+                        {item.label}
+                      </span>
+                    );
+                  })}
                 </div>
                 <div className="hero-badges">
-                  <span className="badge badge-glass">Student access</span>
-                  <span className="badge badge-glass">2025/2026</span>
-                  <span className="badge badge-glass">Secure & Verified</span>
+                  {(hero.badges || []).map((badge, idx) => (
+                    <span key={idx} className={`badge badge-${badge.variant || 'glass'}`}>
+                      {badge.text}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -655,116 +572,112 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="how-it-works" className="landing-section" aria-labelledby="how-title">
-          <div className="section-header">
-            <span className="eyebrow">How it works</span>
-            <h2 id="how-title">Three steps to better results.</h2>
-            <p className="section-lede">From choosing your course to mastering weak topics — a streamlined path to exam readiness.</p>
-          </div>
-          <div className="steps-grid">
-            {STEPS.map((item, index) => (
-              <article className="step-card" key={item.title}>
-                <div className="step-number">{item.step}</div>
-                <div className="step-icon" style={{ background: item.bgColor, color: item.color }}>
-                  <item.icon aria-hidden="true" />
-                </div>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-                <div className="step-connector" aria-hidden="true">
-                  {index < STEPS.length - 1 && <span></span>}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="features" className="landing-section landing-section-alt" aria-labelledby="features-title">
-          <div className="section-header">
-            <span className="eyebrow">Platform features</span>
-            <h2 id="features-title">Built for integrity, speed and learning.</h2>
-            <p className="section-lede">Every feature designed around real exam conditions and pedagogical best practices.</p>
-          </div>
-          <div className="features-grid">
-            {FEATURES.map((feature) => (
-              <article className="feature-card" key={feature.title}>
-                <div className="feature-icon" style={{ background: `${feature.color}15`, color: feature.color }}>
-                  <feature.icon aria-hidden="true" />
-                </div>
-                <h3>{feature.title}</h3>
-                <p>{feature.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="support" className="landing-section" aria-labelledby="support-title">
-          <div className="section-header">
-            <span className="eyebrow">Study support</span>
-            <h2 id="support-title">Help when you need it.</h2>
-            <p className="section-lede">Smart tools that guide your revision without doing the work for you.</p>
-          </div>
-          <div className="support-grid support-grid-vertical">
-            {SUPPORT.map((feature) => (
-              <article className="support-card support-card-modern" key={feature.title}>
-                <div className="support-card-glow" style={{ background: `radial-gradient(circle, ${feature.color}20 0%, transparent 70%)` }} />
-                <span className="support-icon" style={{ background: feature.bgColor, color: feature.color }}>
-                  <feature.icon aria-hidden="true" />
-                </span>
-                <h3>{feature.title}</h3>
-                <p>{feature.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="demo" className="landing-section landing-section-alt" aria-labelledby="demo-title">
-          <div className="section-header">
-            <span className="eyebrow">Try it</span>
-            <h2 id="demo-title">Open a demo {userType === 'student' ? 'student' : 'staff'}.</h2>
-            <p className="section-lede">Jump straight in with a sample account — no registration needed.</p>
-          </div>
-          <div className="demo-grid">
-            {currentDemoAccounts.map((account) => {
-              const blocked = account.reg === '990012020';
-              return (
-                <article className={`demo-card ${blocked ? 'demo-blocked' : ''}`} key={account.reg || account.email}>
-                  <div className="demo-avatar" aria-hidden="true">
-                    {account.avatar}
-                  </div>
-                  <div className="demo-info">
-                    <div className="demo-name-row">
-                      <strong>{account.name}</strong>
-                      <span className={`pill ${blocked ? 'pill-red' : 'pill-teal'}`}>
-                        {blocked ? 'Inactive' : 'Active'}
+        {sections.map((section) => (
+          <section key={section.id} id={section.id} className={`landing-section ${section.altBackground ? 'landing-section-alt' : ''}`} aria-labelledby={`${section.id}-title`}>
+            <div className="section-header">
+              <span className="eyebrow">{section.eyebrow}</span>
+              <h2 id={`${section.id}-title`}>{section.title.replace('{userType}', userType === 'student' ? 'student' : 'staff')}</h2>
+              <p className="section-lede">{section.lede}</p>
+            </div>
+            {section.id === 'how-it-works' && (
+              <div className="steps-grid">
+                {steps.map((item, index) => {
+                  const Icon = getIcon(item.icon);
+                  return (
+                    <article className="step-card" key={item.title}>
+                      <div className="step-number">{item.step}</div>
+                      <div className="step-icon" style={{ background: item.bgColor, color: item.color }}>
+                        <Icon aria-hidden="true" />
+                      </div>
+                      <h3>{item.title}</h3>
+                      <p>{item.text}</p>
+                      <div className="step-connector" aria-hidden="true">
+                        {index < steps.length - 1 && <span></span>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+            {section.id === 'features' && (
+              <div className="features-grid">
+                {features.map((feature) => {
+                  const Icon = getIcon(feature.icon);
+                  return (
+                    <article className="feature-card" key={feature.title}>
+                      <div className="feature-icon" style={{ background: `${feature.color}15`, color: feature.color }}>
+                        <Icon aria-hidden="true" />
+                      </div>
+                      <h3>{feature.title}</h3>
+                      <p>{feature.text}</p>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+            {section.id === 'support' && (
+              <div className="support-grid support-grid-vertical">
+                {support.map((feature) => {
+                  const Icon = getIcon(feature.icon);
+                  return (
+                    <article className="support-card support-card-modern" key={feature.title}>
+                      <div className="support-card-glow" style={{ background: `radial-gradient(circle, ${feature.color}20 0%, transparent 70%)` }} />
+                      <span className="support-icon" style={{ background: feature.bgColor, color: feature.color }}>
+                        <Icon aria-hidden="true" />
                       </span>
-                    </div>
-                    <span className="demo-detail">{account.detail}</span>
-                  </div>
-                  <p className="demo-note">{account.note}</p>
-                  <div className="demo-foot">
-                    <code>{account.reg || account.email}</code>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => {
-                        if (userType === 'student') {
-                          handleDemo(account.reg, account.password);
-                        } else {
-                          setStaffEmail(account.email);
-                          setStaffPassword(account.password);
-                          handleStaffLogin({ preventDefault: () => {} });
-                        }
-                      }}
-                      disabled={loading}
-                    >
-                      {loadingDemo === (account.reg || account.email) ? 'Loading…' : blocked ? 'Test block' : 'Open'}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
+                      <h3>{feature.title}</h3>
+                      <p>{feature.text}</p>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+            {section.id === 'demo' && (
+              <div className="demo-grid">
+                {currentDemoAccounts.map((account) => {
+                  const blocked = account.blocked;
+                  return (
+                    <article className={`demo-card ${blocked ? 'demo-blocked' : ''}`} key={account.reg || account.email}>
+                      <div className="demo-avatar" aria-hidden="true">
+                        {account.avatar}
+                      </div>
+                      <div className="demo-info">
+                        <div className="demo-name-row">
+                          <strong>{account.name}</strong>
+                          <span className={`pill ${blocked ? 'pill-red' : 'pill-teal'}`}>
+                            {blocked ? 'Inactive' : 'Active'}
+                          </span>
+                        </div>
+                        <span className="demo-detail">{account.detail}</span>
+                      </div>
+                      <p className="demo-note">{account.note}</p>
+                      <div className="demo-foot">
+                        <code>{account.reg || account.email}</code>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            if (userType === 'student') {
+                              handleDemo(account.reg, account.password);
+                            } else {
+                              setStaffEmail(account.email);
+                              setStaffPassword(account.password);
+                              handleStaffLogin({ preventDefault: () => {} });
+                            }
+                          }}
+                          disabled={loading}
+                        >
+                          {loadingDemo === (account.reg || account.email) ? 'Loading…' : blocked ? 'Test block' : 'Open'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        ))}
+
       </main>
 
       <footer className="landing-footer">
@@ -772,31 +685,25 @@ export default function Landing() {
           <div className="footer-brand">
             <Logo size="sm" />
             <div>
-              <strong>University of Rwanda · ExamLab</strong>
-              <span>For students · 2025/2026</span>
+              <strong>{footer.brandText || 'University of Rwanda · ExamLab'}</strong>
+              <span>{footer.brandSubtext || 'For students · 2025/2026'}</span>
             </div>
           </div>
           <nav className="footer-links" aria-label="Footer navigation">
-            <a href="#how-it-works">How it works</a>
-            <a href="#features">Features</a>
-            <a href="#demo">Demo accounts</a>
-            <a href="#support">Support</a>
+            {(footer.links || []).map((link, idx) => (
+              <a key={idx} href={link.href}>{link.label}</a>
+            ))}
           </nav>
           <div className="footer-legal">
-            <span>© {new Date().getFullYear()} University of Rwanda</span>
-            <span>Secure examination environment</span>
+            {(footer.legal || []).map((item, idx) => (
+              <span key={idx}>{item.text}</span>
+            ))}
           </div>
         </div>
         <div className="footer-bottom">
-          <p>Server-timed · AI-assisted · Integrity monitored</p>
+          <p>{footer.bottomText || 'Server-timed · AI-assisted · Integrity monitored'}</p>
         </div>
       </footer>
     </div>
   );
-}
-
-function maskEmail(email) {
-  const [local, domain] = email.split('@');
-  if (local.length <= 2) return `${local[0]}***@${domain}`;
-  return `${local[0]}${'•'.repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
 }
