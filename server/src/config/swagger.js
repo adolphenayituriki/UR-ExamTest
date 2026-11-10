@@ -913,6 +913,85 @@ const options = {
           },
         },
       },
+      '/auth/staff/login': {
+        post: {
+          summary: 'Staff login with email and password (sends OTP)',
+          tags: ['Authentication'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['email', 'password'],
+                  properties: {
+                    email: { type: 'string', format: 'email' },
+                    password: { type: 'string', format: 'password' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'OTP sent to registered email',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string' },
+                      emailMasked: { type: 'string' },
+                      staffId: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+            '401': { description: 'Invalid email or password', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            '403': { description: 'Staff account not active', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          },
+        },
+      },
+      '/auth/staff/otp/verify': {
+        post: {
+          summary: 'Verify staff OTP and get JWT token',
+          tags: ['Authentication'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['staffId', 'code'],
+                  properties: {
+                    staffId: { type: 'string' },
+                    code: { type: 'string', pattern: '^\\d{6}$' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Staff authenticated',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      token: { type: 'string' },
+                      student: { $ref: '#/components/schemas/Student' },
+                    },
+                  },
+                },
+              },
+            },
+            '401': { description: 'Invalid or expired OTP', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            '404': { description: 'Staff not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          },
+        },
+      },
     },
   },
   apis: [],
