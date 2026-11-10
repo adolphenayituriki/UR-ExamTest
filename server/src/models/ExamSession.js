@@ -37,6 +37,7 @@ const feedbackSchema = new mongoose.Schema(
   {
     instanceId: { type: String, required: true },
     topic: { type: String },
+    topicTitle: { type: String, default: '' },
     correct: { type: Boolean, default: false },
     awarded: { type: Number, default: 0 },
     max: { type: Number, default: 0 },
@@ -69,6 +70,8 @@ const examSessionSchema = new mongoose.Schema(
       default: 'in_progress',
       index: true,
     },
+    begun: { type: Boolean, default: false },
+    begunAt: { type: Date },
     startedAt: { type: Date, required: true },
     endsAt: { type: Date, required: true },
     durationSeconds: { type: Number, required: true },

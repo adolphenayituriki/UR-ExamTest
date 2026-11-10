@@ -1,6 +1,7 @@
 import { Student } from '../models/Student.js';
 import { env } from '../config/env.js';
 import { ApiError } from '../utils/errors.js';
+import { hashPassword } from '../utils/password.js';
 
 export function normalizeRegistrationNumber(value) {
   return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -40,7 +41,17 @@ async function verifyWithInstitutionalApi(registrationNumber) {
       enrollmentStatus: 'active',
     };
     if (!profile.program) throw new ApiError(502, 'The UR registry returned an incomplete student profile.');
-    return Student.findOneAndUpdate({ registrationNumber }, { $set: profile }, { new: true, upsert: true, setDefaultsOnInsert: true });
+    return Student.findOneAndUpdate(
+      { registrationNumber },
+      {
+        $set: profile,
+        // First-time accounts sourced from the institutional API receive the
+        // registration number as their initial PIN. The registry owner should
+        // rotate it after provisioning.
+        $setOnInsert: { passwordHash: hashPassword(registrationNumber) },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
   } finally {
     clearTimeout(timer);
   }
@@ -49,7 +60,7 @@ async function verifyWithInstitutionalApi(registrationNumber) {
 export async function verifyRegistrationNumber(rawRegistrationNumber) {
   const registrationNumber = normalizeRegistrationNumber(rawRegistrationNumber);
   if (!registrationNumber) throw new ApiError(400, 'Registration number is required.');
-  if (!/^\d{9}$/.test(registrationNumber)) throw new ApiError(400, 'Registration number must contain 9 numbers.');
+  if (!/^\d{9}$/.test(registrationNumber)) throw new ApiError(400, 'Registration number must be exactly 9 digits.');
   const student = env.urRegistryApi ? await verifyWithInstitutionalApi(registrationNumber) : await Student.findOne({ registrationNumber });
   if (!student) throw new ApiError(404, 'Registration number is not recognised in the UR student registry. Account creation is not permitted.');
   if (student.enrollmentStatus !== 'active') throw new ApiError(403, 'Your enrollment is not active. Access to the examination platform has been blocked.');

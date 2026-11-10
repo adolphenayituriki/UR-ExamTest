@@ -121,7 +121,7 @@ export default function Landing() {
       return;
     }
     if (!isNineDigits(reg)) {
-      setError('The reg number must be containing 9 numbers.');
+      setError('Enter the 9-digit registration number (digits only).');
       return;
     }
     setError('');
@@ -132,7 +132,7 @@ export default function Landing() {
   async function handlePinSubmit(event) {
     event.preventDefault();
     if (!pin.trim()) {
-      setError('Enter your PIN.');
+      setError('Enter your password or PIN.');
       return;
     }
     setError('');
@@ -216,7 +216,7 @@ export default function Landing() {
           {step === 'pin' && (
             <form className="access-form" onSubmit={handlePinSubmit}>
               <label className="access-label" htmlFor="pin">
-                PIN
+                Password / PIN
               </label>
               <div className="access-row">
                 <input
@@ -225,7 +225,7 @@ export default function Landing() {
                   type="password"
                   value={pin}
                   onChange={(event) => setPin(event.target.value)}
-                  placeholder="Enter your PIN"
+                  placeholder="Enter your password or PIN"
                   autoComplete="off"
                   spellCheck={false}
                   disabled={loading}

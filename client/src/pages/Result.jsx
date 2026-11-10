@@ -283,7 +283,7 @@ export default function Result() {
                   {feedback?.aiFeedback ? (
                     <div className="review-block review-feedback">
                       <span className="review-label">
-                        AI marker feedback
+                        Marker feedback
                         {feedback.aiScore !== undefined && feedback.aiScore !== null
                           ? ` · ${feedback.aiScore}%`
                           : ''}

@@ -14,6 +14,12 @@ import {
   toneForPercentage,
 } from '../utils/format.js';
 
+const SEMESTER_OPTIONS = [
+  { value: 'all', label: 'All semesters' },
+  { value: 'I', label: 'Semester 1' },
+  { value: 'II', label: 'Semester 2' },
+];
+
 export default function Dashboard() {
   const { student } = useAuth();
   const navigate = useNavigate();
@@ -25,7 +31,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState('');
-  const [semester, setSemester] = useState('2');
+  const [semester, setSemester] = useState('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +66,7 @@ export default function Dashboard() {
   }, []);
 
   async function startAssessment(assessment) {
+    if (!assessment?.id) return;
     setError('');
     setStarting(assessment.id);
     try {
@@ -85,13 +92,16 @@ export default function Dashboard() {
   const stats = overview?.stats;
   const weakTopics = overview?.weakTopics || [];
   const recentAttempts = overview?.recentAttempts || [];
+  const visibleCourses = courses.filter(
+    (course) => semester === 'all' || course.semester === semester || course.semester === 'Annual'
+  );
 
   return (
     <Layout>
       <div className="dashboard-head">
         <div>
           <span className="eyebrow">Student dashboard</span>
-          <h1>Welcome back, {student?.fullName?.split(' ')[0]}.</h1>
+          <h1>Welcome back, {student?.fullName?.split(' ')[0] || 'Student'}.</h1>
           <p className="page-lede">
             Your registered modules, live sessions and diagnostic signals in one place.
           </p>
@@ -145,59 +155,41 @@ export default function Dashboard() {
       <section className="dashboard-hero">
         <article className="profile-card">
           <div className="profile-top">
-            <label className="avatar avatar-lg avatar-cycle" style={{ cursor: 'pointer' }}>
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                  const img = document.createElement('img');
-                  img.src = ev.target.result;
-                  img.style.width = 'calc(100% - 6px)';
-                  img.style.height = 'calc(100% - 6px)';
-                  img.style.objectFit = 'cover';
-                  img.style.borderRadius = '50%';
-                  img.style.position = 'relative';
-                  img.style.zIndex = '1';
-                  const label = e.target.parentElement;
-                  label.classList.add('avatar-cycle');
-                  label.querySelectorAll('img,span').forEach(x=>x.remove());
-                  label.appendChild(img);
-                };
-                reader.readAsDataURL(file);
-              }} />
-              <span>NA</span>
-            </label>
+            <div className="avatar avatar-lg" aria-hidden="true">
+              <span>{initials(student?.fullName || '') || 'UR'}</span>
+            </div>
             <div>
               <span className="profile-kicker">Verified UR profile</span>
-              <h2>NAYITURIKI Adolphe</h2>
+              <h2>{student?.fullName || 'UR Student'}</h2>
               <p>
-                223452022 · BSc Software Engineering
+                {student?.registrationNumber || '—'} · {student?.program || '—'}
               </p>
             </div>
           </div>
           <div className="profile-badges">
-            <span className="pill pill-blue">Year 4</span>
-            <span className="pill pill-soft">2025/2026</span>
-            <span className="pill pill-teal">Kigali</span>
-            <span className="pill pill-green">Enrollment active</span>
+            <span className="pill pill-blue">Year {student?.yearOfStudy || '—'}</span>
+            <span className="pill pill-soft">{student?.academicYear || '—'}</span>
+            <span className="pill pill-teal">{student?.campus || '—'}</span>
+            <span className={`pill ${student?.enrollmentStatus === 'active' ? 'pill-green' : 'pill-red'}`}>
+              {student?.enrollmentStatus === 'active' ? 'Enrollment active' : 'Enrollment inactive'}
+            </span>
           </div>
           <dl className="profile-meta">
             <div>
               <dt>Student ID</dt>
-              <dd>UR-223452022</dd>
+              <dd>{student?.studentId || '—'}</dd>
             </div>
             <div>
               <dt>College</dt>
-              <dd>College of Science and Technology</dd>
+              <dd>{student?.college || '—'}</dd>
             </div>
             <div>
               <dt>Department</dt>
-              <dd>Software Engineering</dd>
+              <dd>{student?.department || '—'}</dd>
             </div>
             <div>
               <dt>Institutional email</dt>
-              <dd>adolphe.nayituriki@student.ur.ac.rw</dd>
+              <dd>{student?.email || '—'}</dd>
             </div>
           </dl>
           <div className="profile-security">
@@ -213,7 +205,7 @@ export default function Dashboard() {
           {loading ? (
             <div className="skeleton-block skeleton-stats" />
           ) : (
-            <div className="stat-grid" style={{ display: 'none' }}>
+            <div className="stat-grid">
               <StatCard
                 label="Attempts"
                 value={stats?.attempts ?? 0}
@@ -247,7 +239,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="weakness-panel" style={{ display: 'none' }}>
+          <div className="weakness-panel">
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">AI weakness diagnostics</span>
@@ -293,11 +285,27 @@ export default function Dashboard() {
         <div className="panel-heading">
           <div>
             <span className="eyebrow">Registered modules</span>
-            <h2>Year {student?.yearOfStudy} · {student?.program}</h2>
+            <h2>
+              Year {student?.yearOfStudy || '—'} · {student?.program || '—'}
+            </h2>
           </div>
-          <span className="muted">
-            {(semester === '2' ? 3 : courses.length)} module{(semester === '2' ? 3 : courses.length) === 1 ? '' : 's'} mapped to your academic year
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span className="muted">
+              {visibleCourses.length} module{visibleCourses.length === 1 ? '' : 's'} available
+            </span>
+            <select
+              value={semester}
+              onChange={(event) => setSemester(event.target.value)}
+              className="select"
+              aria-label="Filter modules by semester"
+            >
+              {SEMESTER_OPTIONS.map((option) => (
+                <option value={option.value} key={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -306,79 +314,86 @@ export default function Dashboard() {
               <div className="skeleton-block skeleton-course" key={item} />
             ))}
           </div>
-        ) : (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <span className="muted">Select Semester</span>
-              <select
-                value={semester}
-                onChange={(e) => setSemester(e.target.value)}
-                className="select"
-              >
-                <option value="1">Semester 1</option>
-                <option value="2">Semester 2</option>
-              </select>
-            </div>
-            <div className="course-grid">
-              {(semester === '2'
-                ? [
-                    {code:'CST3201', title:'Software Engineering', credits:4, description:'Software development lifecycle and methodologies'},
-                    {code:'CST3202', title:'Web Technologies', credits:4, description:'Modern web development with frameworks'},
-                    {code:'CST3203', title:'Mobile Application Development', credits:4, description:'Cross-platform mobile app development'},
-                  ]
-                : courses
-              ).map((m, i) => (
-                <article className="course-card" key={m.id || 'mock-'+i}>
-                  <div className="course-stripe" />
+        ) : visibleCourses.length ? (
+          <div className="course-grid">
+            {visibleCourses.map((course) => {
+              const practice = course.assessments?.find((assessment) => assessment.mode === 'practice');
+              const finalExam = course.assessments?.find((assessment) => assessment.mode === 'exam');
+              return (
+                <article className="course-card" key={course.id}>
+                  <div className="course-stripe" style={{ background: course.accent || undefined }} />
                   <div className="course-top">
-                    <span className="course-code">{m.code}</span>
-                    <span className="pill pill-soft">{m.credits || 4} credits</span>
+                    <span className="course-code">{course.code}</span>
+                    <span className="pill pill-soft">{course.credits} credits</span>
                   </div>
-                  <h3>{m.title}</h3>
-                  <p className="course-description">{m.description || m.desc}</p>
+                  <h3>{course.title}</h3>
+                  <p className="course-description">{course.description}</p>
                   <div className="course-topics">
-                    {(m.topics || []).slice(0,4).map((t) => (
-                      <span className="topic-chip" key={t.key || t.title || t}>{t.title || t}</span>
+                    {(course.topics || []).slice(0, 4).map((topic) => (
+                      <span className="topic-chip" key={topic.key}>
+                        {topic.title}
+                      </span>
                     ))}
-                    {!(m.topics && m.topics.length) && (<><span className="topic-chip">Core</span><span className="topic-chip">Theory</span><span className="topic-chip">Lab</span></>)}
                   </div>
                   <div className="course-metrics">
                     <div>
                       <span>Questions</span>
-                      <strong>{m.questionCount || 50}</strong>
+                      <strong>{course.questionCount || 0}</strong>
                     </div>
                     <div>
                       <span>Attempts</span>
-                      <strong>{m.attempts || 0}</strong>
+                      <strong>{course.attempts || 0}</strong>
                     </div>
                     <div>
                       <span>Best</span>
-                      <strong>{m.best || 0}%</strong>
+                      <strong>{course.best || 0}%</strong>
                     </div>
                   </div>
                   <div className="course-actions">
-                    <button type="button" className="btn btn-outline" onClick={() => {
-                      const exam = (m.id ? courses.find(c=>c.id===m.id)?.assessments?.find(a=>a.mode==='exam') : null) || courses[0]?.assessments?.find(a=>a.mode==='exam');
-                      if (exam && exam.id) startAssessment(exam);
-                      else navigate('/courses/1');
-                    }}>Exam Test</button>
-                    <button type="button" className="btn btn-primary" onClick={() => {
-                      const practice = courses.find(c=>c.id===m.id)?.assessments?.find(a=>a.mode==='practice') || courses[0]?.assessments?.find(a=>a.mode==='practice');
-                      if (practice && practice.id) {
-                        startAssessment(practice);
-                        return;
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() =>
+                        finalExam
+                          ? startAssessment(finalExam)
+                          : navigate(`/courses/${course.id}`)
                       }
-                      navigate('/courses/1');
-                    }} disabled={Boolean(starting)}>{starting ? 'Starting…' : 'Quick practice'}</button>
+                      disabled={Boolean(starting)}
+                    >
+                      Exam test
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() =>
+                        practice
+                          ? startAssessment(practice)
+                          : navigate(`/courses/${course.id}`)
+                      }
+                      disabled={Boolean(starting)}
+                    >
+                      {starting === practice?.id ? 'Starting…' : 'Quick practice'}
+                    </button>
                   </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-block"
+                    onClick={() => navigate(`/courses/${course.id}`)}
+                  >
+                    Open module details
+                  </button>
                 </article>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="empty-inline">
+            No modules are mapped to this semester for your academic year.
           </div>
         )}
       </section>
 
-      <section className="dashboard-section" style={{ display: 'none' }}>
+      <section className="dashboard-section">
         <div className="panel-heading">
           <div>
             <span className="eyebrow">Assessment history</span>
@@ -449,7 +464,11 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
-        ) : null}
+        ) : (
+          <div className="empty-inline">
+            No graded sessions yet. Start a practice track to establish your baseline.
+          </div>
+        )}
       </section>
     </Layout>
   );

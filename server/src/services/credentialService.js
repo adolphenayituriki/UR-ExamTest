@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { ExamSession } from '../models/ExamSession.js';
 import { Credential } from '../models/Credential.js';
 import { env } from '../config/env.js';
+import { ApiError } from '../utils/errors.js';
 import { round1 } from '../utils/math.js';
 
 export const CREDENTIAL_CRITERIA = {
@@ -184,14 +185,13 @@ export function buildBadge({ student, code, title, description, criteria, academ
 export async function issueCredential(student, academicYear) {
   const eligibility = await computeEligibility(student, academicYear);
   if (eligibility.alreadyIssued) {
-    throw Object.assign(new Error('A credential has already been issued for this academic year.'), {
-      status: 409,
-    });
+    throw new ApiError(409, 'A credential has already been issued for this academic year.');
   }
   if (!eligibility.eligible) {
-    throw Object.assign(
-      new Error('The student has not yet met every annual credential criterion.'),
-      { status: 422, details: { checks: eligibility.checks } }
+    throw new ApiError(
+      422,
+      'The student has not yet met every annual credential criterion.',
+      { checks: eligibility.checks }
     );
   }
 

@@ -4,7 +4,7 @@ import rateLimit from 'express-rate-limit';
 import { env } from '../config/env.js';
 import { verifyRegistrationNumber } from '../services/urRegistry.js';
 import { authenticate } from '../middleware/auth.js';
-import { asyncHandler, requireFields } from '../utils/errors.js';
+import { ApiError, asyncHandler, requireFields } from '../utils/errors.js';
 
 const router = express.Router();
 
@@ -20,16 +20,12 @@ router.post(
   '/verify',
   handshakeLimiter,
   asyncHandler(async (req, res) => {
-    requireFields(req.body, ['registrationNumber']);
+    requireFields(req.body, ['registrationNumber', 'password']);
     const student = await verifyRegistrationNumber(req.body.registrationNumber);
 
-    if (req.body.password !== undefined && req.body.password !== null && String(req.body.password).trim() !== '') {
-      const ok = student.verifyPassword ? student.verifyPassword(req.body.password) : false;
-      if (!ok) {
-        throw new ApiError(401, 'Invalid PIN or password.');
-      }
-    } else if (!student.verifyPassword) {
-      // keep compatibility
+    const password = String(req.body.password);
+    if (!student.verifyPassword || !student.verifyPassword(password)) {
+      throw new ApiError(401, 'Invalid PIN or password.');
     }
 
     student.tokenVersion += 1;

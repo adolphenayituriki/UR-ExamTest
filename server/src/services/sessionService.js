@@ -58,6 +58,9 @@ export async function buildQuestionInstances(courseId, count) {
 
 export function remainingSeconds(session, now = Date.now()) {
   if (session.status !== 'in_progress') return 0;
+  // Sessions created before the student acknowledges the instructions have not
+  // started their clock yet.
+  if (session.begun === false) return session.durationSeconds;
   const end = new Date(session.endsAt).getTime();
   return Math.max(0, Math.ceil((end - now) / 1000));
 }
@@ -156,6 +159,8 @@ export function sanitizeSession(session) {
     id: session._id,
     status: session.status,
     mode: session.mode,
+    begun: session.begun !== false,
+    begunAt: session.begunAt || null,
     startedAt: session.startedAt,
     endsAt: session.endsAt,
     serverNow: new Date().toISOString(),
@@ -290,6 +295,7 @@ export async function sweepExpiredSessions() {
   const now = new Date();
   const due = await ExamSession.find({
     status: 'in_progress',
+    begun: { $ne: false },
     endsAt: { $lt: now },
   }).limit(25);
 

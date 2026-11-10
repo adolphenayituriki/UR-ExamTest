@@ -1,52 +1,73 @@
-const CACHE_NAME = 'ur-examlab-v1';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/src/main.jsx',
-  '/UR logo.png',
-];
+const CACHE_NAME = 'ur-examlab-v4';
+const CORE_ASSETS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/UR logo.png'];
 
-// Cache static assets on install.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS).catch(() => {}))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS).catch(() => {}))
   );
   self.skipWaiting();
 });
 
-// Serve cached assets when offline.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+      )
+      .then(() => self.clients.claim())
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
+  if (request.method !== 'GET') return;
 
-  // API calls: try network first, fall back to cache (offline practice data).
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
   if (url.pathname.startsWith('/api/')) {
+    // Never cache API traffic: responses contain student-specific records and
+    // live exam state that must not leak between sessions or go stale offline.
+    event.respondWith(
+      fetch(request).catch(
+        () =>
+          new Response(JSON.stringify({ offline: true }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          })
+      )
+    );
+    return;
+  }
+
+  if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (request.method === 'GET' && response.ok) {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/'))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request)
+        .then((response) => {
+          if (response.ok) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || new Response(JSON.stringify({ offline: true }), { status: 503, headers: { 'Content-Type': 'application/json' } })))
-    );
-    return;
-  }
-
-  // Shell assets: cache first, then network.
-  event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request))
+        .catch(() => cached);
+      return cached || network;
+    })
   );
-});
-
-// Clean up old caches on activate.
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
-  );
-  self.clients.claim();
 });

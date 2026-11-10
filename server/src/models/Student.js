@@ -1,5 +1,5 @@
-import crypto from 'node:crypto';
 import mongoose from 'mongoose';
+import { hashPassword, verifyPasswordHash } from '../utils/password.js';
 
 const studentSchema = new mongoose.Schema(
   {
@@ -38,19 +38,6 @@ const studentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-function hashPassword(candidate) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(candidate, salt, 64).toString('hex');
-  return `scrypt:${salt}:${hash}`;
-}
-
-function verifyHash(candidate, stored) {
-  if (!stored || !stored.startsWith('scrypt:')) return false;
-  const [, salt, hash] = stored.split(':');
-  const computed = crypto.scryptSync(candidate, salt, 64).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
-}
-
 studentSchema.pre('save', function (next) {
   if (!this.isModified('passwordHash')) return next();
   const candidate = String(this.passwordHash || '').trim();
@@ -64,7 +51,7 @@ studentSchema.methods.verifyPassword = function verifyPassword(candidate) {
   if (stored && (stored.startsWith('$2b$') || stored.startsWith('$2a$'))) {
     return false;
   }
-  return verifyHash(candidate, stored);
+  return verifyPasswordHash(candidate, stored);
 };
 
 studentSchema.methods.toProfile = function toProfile() {

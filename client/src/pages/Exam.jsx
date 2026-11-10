@@ -4,6 +4,7 @@ import api, { getErrorMessage } from '../api/client.js';
 import Layout from '../components/Layout.jsx';
 import QuestionRenderer from '../components/QuestionRenderer.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useToast } from '../components/Toast.jsx';
 import { useServerTimer } from '../hooks/useServerTimer.js';
 import {
   formatDuration,
@@ -17,19 +18,23 @@ export default function Exam() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { student } = useAuth();
+  const { toast } = useToast();
 
   const [session, setSession] = useState(null);
   const [answers, setAnswers] = useState({});
+  const [flagged, setFlagged] = useState(new Set());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saveStatus, setSaveStatus] = useState('idle');
   const [submitting, setSubmitting] = useState(false);
   const [showSubmit, setShowSubmit] = useState(false);
-  const [timeUp, setTimeUp] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [cameraStream, setCameraStream] = useState(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [beginning, setBeginning] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const videoRef = useRef(null);
+  const cameraRef = useRef(null);
   const [agreed, setAgreed] = useState(false);
   const [hints, setHints] = useState({});
   const [hintLoading, setHintLoading] = useState(false);
@@ -38,30 +43,49 @@ export default function Exam() {
 
   useEffect(() => {
     if (session && session.status === 'in_progress') {
-      setShowInstructions(true);
+      setShowInstructions(session.begun === false);
     }
-  }, [session?.status]);
+  }, [session?.status, session?.begun]);
 
   useEffect(() => {
-    if (!showInstructions) return;
+    if (!showInstructions) return undefined;
+    let cancelled = false;
+
     async function startCam() {
+      if (cameraRef.current) {
+        if (videoRef.current) videoRef.current.srcObject = cameraRef.current;
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        setCameraStream(stream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
         }
+        cameraRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
       } catch {
-        // Camera may be blocked, continue without
+        // Camera access is optional; the exam continues without a preview.
       }
     }
+
     startCam();
     return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(t => t.stop());
-      }
+      cancelled = true;
+      const stream = cameraRef.current;
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      cameraRef.current = null;
     };
   }, [showInstructions]);
+
+  useEffect(
+    () => () => {
+      const stream = cameraRef.current;
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      cameraRef.current = null;
+    },
+    []
+  );
 
   useEffect(() => {
     if (showInstructions || submitting) return;
@@ -95,29 +119,6 @@ export default function Exam() {
       document.removeEventListener('keydown', preventKeys, true);
     };
   }, [showInstructions, submitting]);
-
-  useEffect(() => {
-    if (showInstructions || submitting) return;
-    const onBlur = async () => {
-      if (submissionRef.current) return;
-      alert('Warning: Switching tabs/windows is not allowed during the exam. This will be recorded and may result in automatic submission.');
-      if (submissionRef.current) return;
-      submissionRef.current = true;
-      setSubmitting(true);
-      setShowSubmit(false);
-      if (cameraStream) {
-        try { cameraStream.getTracks().forEach(t => t.stop()); } catch {}
-        setCameraStream(null);
-      }
-      try {
-        await api.post(`/exams/${sessionId}/integrity`, { type: 'window_blur' });
-      } catch {}
-      api.post(`/exams/${sessionId}/submit`, { answers: Object.entries(answersRef.current).map(([instanceId, value]) => ({ instanceId, value })) }).catch(() => {});
-      navigate(`/result/${sessionId}`, { replace: true });
-    };
-    window.addEventListener('blur', onBlur);
-    return () => window.removeEventListener('blur', onBlur);
-  }, [showInstructions, submitting, sessionId, cameraStream, navigate]);
 
   const answersRef = useRef({});
   const sessionRef = useRef(null);
@@ -168,15 +169,19 @@ export default function Exam() {
     };
   }, [sessionId, navigate]);
 
+  const stopCamera = useCallback(() => {
+    const stream = cameraRef.current;
+    if (!stream) return;
+    stream.getTracks().forEach((track) => track.stop());
+    cameraRef.current = null;
+  }, []);
+
   const submitSession = useCallback(async () => {
     if (submissionRef.current) return;
     submissionRef.current = true;
     setSubmitting(true);
     setShowSubmit(false);
-    if (cameraStream) {
-      try { cameraStream.getTracks().forEach(t => t.stop()); } catch {}
-      setCameraStream(null);
-    }
+    stopCamera();
     try {
       const payload = {
         answers: Object.entries(answersRef.current).map(([instanceId, value]) => ({
@@ -184,31 +189,58 @@ export default function Exam() {
           value,
         })),
       };
-      api.post(`/exams/${sessionId}/submit`, payload).catch(() => {});
+      await api.post(`/exams/${sessionId}/submit`, payload);
+      navigate(`/result/${sessionId}`, { replace: true });
     } catch (err) {
-      // ignore
+      submissionRef.current = false;
+      setSubmitting(false);
+      setError(getErrorMessage(err, 'Could not submit. Please try again.'));
     }
-    navigate(`/result/${sessionId}`, { replace: true });
-  }, [navigate, sessionId]);
+  }, [navigate, sessionId, stopCamera]);
 
-  const handleTimeUp = useCallback(() => {
-    setTimeUp(true);
+  const handleTimeUp = useCallback(async () => {
     if (submissionRef.current) return;
     submissionRef.current = true;
     setSubmitting(true);
     setShowSubmit(false);
-    if (cameraStream) {
-      try { cameraStream.getTracks().forEach(t => t.stop()); } catch {}
-      setCameraStream(null);
+    stopCamera();
+    try {
+      await api.post(`/exams/${sessionId}/submit`, {
+        answers: Object.entries(answersRef.current).map(([instanceId, value]) => ({
+          instanceId,
+          value,
+        })),
+      });
+    } catch {
+      // The server-side expiry sweeper will finalise the session if this
+      // request cannot reach the API.
     }
-    api.post(`/exams/${sessionId}/submit`, { answers: Object.entries(answersRef.current).map(([instanceId, value]) => ({ instanceId, value })) }).catch(() => {});
     navigate(`/result/${sessionId}`, { replace: true });
-  }, [navigate, sessionId, cameraStream]);
+  }, [navigate, sessionId, stopCamera]);
+
+  const beginExam = useCallback(async () => {
+    if (beginning) return;
+    setError('');
+    setBeginning(true);
+    try {
+      const response = await api.post(`/exams/${sessionId}/begin`);
+      setSession(response.data.session);
+      setShowInstructions(false);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not start the examination clock.'));
+    } finally {
+      setBeginning(false);
+    }
+  }, [beginning, sessionId]);
 
   const remaining = useServerTimer({
     serverNow: session?.serverNow,
     endsAt: session?.endsAt,
-    running: Boolean(session?.status === 'in_progress') && !submitting && !showInstructions,
+    running:
+      Boolean(session?.status === 'in_progress') &&
+      session?.begun !== false &&
+      !submitting &&
+      !showInstructions,
     onExpire: handleTimeUp,
   });
 
@@ -238,14 +270,21 @@ export default function Exam() {
   }, [session?.status, sessionId, submitting, navigate, showInstructions]);
 
   useEffect(() => {
-    if (!session || session.status !== 'in_progress' || submitting) return undefined;
+    if (
+      !session ||
+      session.status !== 'in_progress' ||
+      session.begun === false ||
+      submitting
+    ) {
+      return undefined;
+    }
     const handler = (event) => {
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [session?.status, submitting]);
+  }, [session?.status, session?.begun, submitting]);
 
   useEffect(() => {
     if (showInstructions || submitting) return;
@@ -282,6 +321,70 @@ export default function Exam() {
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [showInstructions, submitting, sessionId, navigate]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (showInstructions || submitting || showSubmit) return;
+    const handleKeyDown = (e) => {
+      // Don't intercept if typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+      
+      if (e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setFullscreen((prev) => !prev);
+        return;
+      }
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setCurrentIndex((i) => Math.min(questions.length - 1, i + 1));
+        return;
+      }
+      if (e.altKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setCurrentIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        const question = questions[currentIndex];
+        if (question) {
+          setFlagged((prev) => {
+            const next = new Set(prev);
+            if (next.has(question.instanceId)) next.delete(question.instanceId);
+            else next.add(question.instanceId);
+            return next;
+          });
+          toast(next.has(question.instanceId) ? 'Question flagged for review' : 'Flag removed', 'info');
+        }
+        return;
+      }
+      if (e.key === '?' && e.shiftKey) {
+        e.preventDefault();
+        setShowShortcuts((prev) => !prev);
+        return;
+      }
+      // Number keys 1-9 for quick navigation
+      if (e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx < questions.length) {
+          e.preventDefault();
+          setCurrentIndex(idx);
+        }
+        return;
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showInstructions, submitting, showSubmit, currentIndex, questions, toast]);
+
+  // Fullscreen handling
+  useEffect(() => {
+    if (fullscreen) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, [fullscreen]);
 
   useEffect(
     () => () => {
@@ -415,17 +518,18 @@ export default function Exam() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <li>Ensure a quiet, well-lit environment with no unauthorized materials.</li>
-                  <li>Webcam must remain active throughout the exam.</li>
-                  <li>Do not switch tabs, windows, or applications. Doing so may auto-submit the exam.</li>
+                  <li>Keep this tab focused. Only switching away from the exam tab is counted.</li>
+                  <li>After three tab switches the session is submitted automatically.</li>
                   <li>Copy, paste, cut, right-click, and developer tools are disabled.</li>
                   <li>Do not use external devices or communicate with others.</li>
-                  <li>The exam is server-timed. Auto-submission occurs on timeout or violations.</li>
+                  <li>The clock starts only after you press Start Exam and is server-timed.</li>
                   <li>All activity is monitored for integrity.</li>
                 </ul>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
                   <span>I have read and agree to follow all instructions</span>
                 </label>
+                {error ? <div className="alert alert-error compact">{error}</div> : null}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <span className="side-label">Camera Preview</span>
@@ -433,8 +537,13 @@ export default function Exam() {
               </div>
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn btn-primary" disabled={!agreed} onClick={() => setShowInstructions(false)}>
-                Start Exam
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!agreed || beginning}
+                onClick={beginExam}
+              >
+                {beginning ? 'Starting clock…' : 'Start Exam'}
               </button>
             </div>
           </div>
@@ -478,6 +587,15 @@ export default function Exam() {
                     ? 'All changes saved'
                     : 'Autosave ready'}
             </span>
+            {flagged.size > 0 && (
+              <span className="flagged-indicator" title={`${flagged.size} question${flagged.size > 1 ? 's' : ''} flagged for review`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                  <line x1="7" y1="7" x2="7.01" y2="7" />
+                </svg>
+                <span>{flagged.size}</span>
+              </span>
+            )}
           </div>
         </div>
           <div className="exam-toolbar-actions">
@@ -485,6 +603,34 @@ export default function Exam() {
               <span>Server-timed</span>
               <strong>{showInstructions ? formatDuration(session?.durationSeconds || remaining) : formatDuration(remaining)}</strong>
             </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setFullscreen((prev) => !prev)}
+              title="Toggle fullscreen (Alt+F)"
+              disabled={showInstructions}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {fullscreen ? (
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+                ) : (
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3" />
+                )}
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowShortcuts(true)}
+              title="Keyboard shortcuts (Shift+?)"
+              disabled={showInstructions}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </button>
             <button
               type="button"
               className="btn btn-primary"
@@ -514,16 +660,24 @@ export default function Exam() {
             <div className="palette">
               {questions.map((item, index) => {
                 const answered = String(answers[item.instanceId] || '').trim();
+                const isFlagged = flagged.has(item.instanceId);
                 return (
                   <button
                     type="button"
                     key={item.instanceId}
                     className={`palette-key ${answered ? 'palette-answered' : ''} ${
                       index === currentIndex ? 'palette-current' : ''
-                    }`}
+                    } ${isFlagged ? 'palette-flagged' : ''}`}
                     onClick={() => setCurrentIndex(index)}
+                    title={isFlagged ? 'Flagged for review' : ''}
                   >
                     {index + 1}
+                    {isFlagged && (
+                      <svg className="flag-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                        <line x1="7" y1="7" x2="7.01" y2="7" />
+                      </svg>
+                    )}
                   </button>
                 );
               })}
@@ -534,6 +688,9 @@ export default function Exam() {
               </span>
               <span>
                 <i className="legend-dot legend-unanswered" /> Unanswered
+              </span>
+              <span>
+                <i className="legend-dot legend-flagged" /> Flagged
               </span>
             </div>
           </div>
@@ -708,6 +865,49 @@ export default function Exam() {
                 disabled={submitting}
               >
                 Submit and grade
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showShortcuts ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setShowShortcuts(false)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" onClick={(e) => e.stopPropagation()}>
+            <span className="eyebrow">Keyboard Shortcuts</span>
+            <h2 id="shortcuts-title">Exam Navigation</h2>
+            <div className="shortcuts-grid">
+              <div className="shortcut-item">
+                <kbd>Alt</kbd> + <kbd>N</kbd>
+                <span>Next question</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Alt</kbd> + <kbd>P</kbd>
+                <span>Previous question</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>1</kbd>–<kbd>9</kbd>
+                <span>Jump to question 1–9</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>F</kbd>
+                <span>Flag / unflag question</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Alt</kbd> + <kbd>F</kbd>
+                <span>Toggle fullscreen</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Shift</kbd> + <kbd>?</kbd>
+                <span>Show this help</span>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowShortcuts(false)}
+              >
+                Got it
               </button>
             </div>
           </div>

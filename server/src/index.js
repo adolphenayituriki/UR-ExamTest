@@ -4,8 +4,12 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
+import path from 'node:path';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
+import { setupSwagger } from './config/swagger.js';
 import { ApiError } from './utils/errors.js';
 import authRoutes from './routes/auth.js';
 import courseRoutes from './routes/courses.js';
@@ -18,7 +22,10 @@ import literacyRoutes from './routes/literacy.js';
 import { sweepExpiredSessions } from './services/sessionService.js';
 
 const app = express();
+const here = path.dirname(fileURLToPath(import.meta.url));
+const clientDist = path.resolve(here, '../../client/dist');
 
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(
@@ -65,9 +72,31 @@ app.use('/api/past-papers', pastPaperRoutes);
 app.use('/api/credentials', credentialRoutes);
 app.use('/api/literacy', literacyRoutes);
 
+setupSwagger(app);
+
 app.use('/api', (_req, res) => {
   res.status(404).json({ message: 'API endpoint not found.' });
 });
+
+// Serve the production client bundle when it has been built. Vite handles the
+// same assets during local development on port 5173.
+if (existsSync(clientDist)) {
+  app.use(
+    express.static(clientDist, {
+      index: false,
+      maxAge: '1h',
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('sw.js') || filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    })
+  );
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    return res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 app.use((error, _req, res, _next) => {
   if (error instanceof ApiError) {
@@ -90,6 +119,13 @@ app.use((error, _req, res, _next) => {
 
   if (error?.name === 'CastError') {
     return res.status(400).json({ message: 'Invalid identifier supplied.' });
+  }
+
+  if (Number.isInteger(error?.status) && error.status >= 400 && error.status < 500) {
+    return res.status(error.status).json({
+      message: error.message || 'Request could not be processed.',
+      ...(error.details ? { details: error.details } : {}),
+    });
   }
 
   console.error('[api] unhandled error:', error);

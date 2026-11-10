@@ -48,7 +48,11 @@ async function loadAssessmentForStudent(assessmentId, student) {
 }
 
 async function prepareExistingSession(session) {
-  if (session.status === 'in_progress' && remainingSeconds(session) <= 0) {
+  if (
+    session.status === 'in_progress' &&
+    session.begun !== false &&
+    remainingSeconds(session) <= 0
+  ) {
     await finalizeSession(session, {
       expired: true,
       autoSubmitted: true,
@@ -110,6 +114,7 @@ router.post(
         assessment: assessment._id,
         mode: assessment.mode,
         status: 'in_progress',
+        begun: false,
         startedAt,
         endsAt,
         durationSeconds,
@@ -161,6 +166,39 @@ router.get(
   })
 );
 
+router.post(
+  '/:sessionId/begin',
+  asyncHandler(async (req, res) => {
+    const session = await findOwnedSession(req.params.sessionId, req.student._id);
+
+    if (session.status !== 'in_progress') {
+      await populateSession(session);
+      return res.status(409).json({
+        message: 'This session has already been submitted.',
+        session: sanitizeSession(session),
+      });
+    }
+
+    if (session.begun !== false) {
+      await populateSession(session);
+      return res.json({ session: sanitizeSession(session) });
+    }
+
+    const now = new Date();
+    session.begun = true;
+    session.begunAt = now;
+    session.startedAt = now;
+    session.endsAt = new Date(now.getTime() + session.durationSeconds * 1000);
+    await session.save();
+    await populateSession(session);
+
+    res.json({
+      message: 'Clock started. Good luck.',
+      session: sanitizeSession(session),
+    });
+  })
+);
+
 router.get(
   '/:sessionId/clock',
   asyncHandler(async (req, res) => {
@@ -204,6 +242,10 @@ router.patch(
         message: 'This session is already submitted.',
         session: sanitizeSession(session),
       });
+    }
+
+    if (session.begun === false) {
+      throw new ApiError(409, 'Start the examination before saving answers.');
     }
 
     if (remainingSeconds(session) <= 0) {

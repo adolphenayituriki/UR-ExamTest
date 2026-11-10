@@ -11,8 +11,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.warn('[sw] registration failed:', error.message);
+    if (import.meta.env.PROD) {
+      navigator.serviceWorker.register('/sw.js').catch((error) => {
+        console.warn('[sw] registration failed:', error.message);
+      });
+      return;
+    }
+    navigator.serviceWorker.getRegistrations?.().then((registrations) => {
+      registrations.forEach((registration) => registration.unregister());
     });
   });
 }

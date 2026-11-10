@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api, { getErrorMessage } from '../api/client.js';
 import Layout from '../components/Layout.jsx';
 import StatCard from '../components/StatCard.jsx';
-import { modeLabel, pluralize, toneForPercentage } from '../utils/format.js';
+import { formatMinutes, modeLabel, pluralize, toneForPercentage } from '../utils/format.js';
 
 export default function Analytics() {
   const navigate = useNavigate();
@@ -71,8 +71,8 @@ export default function Analytics() {
     <Layout>
       <div className="dashboard-head">
         <div>
-          <span className="eyebrow">Weakness diagnostics</span>
-          <h1>Weakness diagnostics</h1>
+          <span className="eyebrow">Learning analytics</span>
+          <h1>Your weakness diagnostics</h1>
           <p className="page-lede">
             Failure logs are mapped to syllabus nodes, then translated into a focused study plan.
           </p>
@@ -221,7 +221,7 @@ export default function Analytics() {
                 <div className="trend-footer">
                   <span>Best {stats.bestPercentage}%</span>
                   <span>Pass rate {stats.passRate}%</span>
-                  <span>Study time {stats.studyMinutes} min</span>
+                  <span>Study time {formatMinutes(stats.studyMinutes)}</span>
                 </div>
               ) : null}
             </section>

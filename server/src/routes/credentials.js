@@ -6,6 +6,16 @@ import { authenticate } from '../middleware/auth.js';
 import { ApiError, asyncHandler } from '../utils/errors.js';
 
 const router = express.Router();
+
+// Public endpoint so employers and other institutions can verify a credential.
+router.get(
+  '/verify/:code',
+  asyncHandler(async (req, res) => {
+    const result = await verifyCredential(req.params.code);
+    res.json(result);
+  })
+);
+
 router.use(authenticate);
 
 router.get(
@@ -23,14 +33,6 @@ router.post(
     const academicYear = req.body.academicYear || req.student.academicYear;
     const credential = await issueCredential(req.student, academicYear);
     res.status(201).json({ credential, message: 'Annual exam-readiness credential issued.' });
-  })
-);
-
-router.get(
-  '/verify/:code',
-  asyncHandler(async (req, res) => {
-    const result = await verifyCredential(req.params.code);
-    res.json(result);
   })
 );
 

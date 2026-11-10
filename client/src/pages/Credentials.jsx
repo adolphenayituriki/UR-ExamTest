@@ -1,49 +1,44 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api, { getErrorMessage } from '../api/client.js';
 import Layout from '../components/Layout.jsx';
-import ProgressRing from '../components/ProgressRing.jsx';
 import StatCard from '../components/StatCard.jsx';
-import { formatDate, toneForPercentage } from '../utils/format.js';
+import { formatDate } from '../utils/format.js';
 
 export default function Credentials() {
-  const navigate = useNavigate();
   const [eligibility, setEligibility] = useState(null);
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  [navigate];
   const [issuing, setIssuing] = useState(false);
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyResult, setVerifyResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError('');
-      try {
-        const [eligibilityResult, credentialsResult] = await Promise.allSettled([
-          api.get('/credentials/eligibility'),
-          api.get('/credentials/mine'),
-        ]);
-        if (cancelled) return;
-        if (eligibilityResult.status === 'fulfilled') setEligibility(eligibilityResult.value.data);
-        if (credentialsResult.status === 'fulfilled')
-          setCredentials(credentialsResult.value.data.credentials || []);
-        if (eligibilityResult.status === 'rejected') setError(getErrorMessage(eligibilityResult.reason));
-      } catch {
-        // continue
-      } finally {
-        if (!cancelled) setLoading(false);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [eligibilityResult, credentialsResult] = await Promise.allSettled([
+        api.get('/credentials/eligibility'),
+        api.get('/credentials/mine'),
+      ]);
+      if (eligibilityResult.status === 'fulfilled') {
+        setEligibility(eligibilityResult.value.data);
+      } else {
+        setError(getErrorMessage(eligibilityResult.reason));
       }
+      if (credentialsResult.status === 'fulfilled') {
+        setCredentials(credentialsResult.value.data.credentials || []);
+      }
+    } finally {
+      setLoading(false);
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const issueCredential = useCallback(async () => {
     setError('');
@@ -52,17 +47,13 @@ export default function Credentials() {
       await api.post('/credentials/issue', {
         academicYear: eligibility?.academicYear,
       });
-      setIssuing(false);
-      loadData();
+      await loadData();
     } catch (err) {
-      setIssuing(false);
       setError(getErrorMessage(err));
+    } finally {
+      setIssuing(false);
     }
-  }, [eligibility?.academicYear]);
-
-  const loadData = () => {
-    load();
-  };
+  }, [eligibility?.academicYear, loadData]);
 
   async function verify() {
     if (!verifyCode.trim()) return;
@@ -230,57 +221,57 @@ export default function Credentials() {
               ) : null}
             </div>
           </section>
+        </>
+      )}
 
-          <section className="dashboard-section" style={{ marginTop: '1.5rem' }}>
-            <div className="panel-heading">
-              <div>
-                <span className="eyebrow">Verify any credential</span>
-                <h2>Public verification</h2>
-              </div>
+      <section className="dashboard-section" style={{ marginTop: '1.5rem' }}>
+        <div className="panel-heading">
+          <div>
+            <span className="eyebrow">Verify any credential</span>
+            <h2>Public verification</h2>
+          </div>
+        </div>
+        <div className="verify-card">
+          <div className="verify-form">
+            <label className="verify-label">Credential code</label>
+            <div className="verify-row">
+              <input
+                className="input input-verify"
+                value={verifyCode}
+                onChange={(e) => setVerifyCode(e.target.value)}
+                placeholder="e.g. UR-EXAM-2025-26-AB12"
+                spellCheck={false}
+                disabled={verifying}
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={verify}
+                disabled={verifying || !verifyCode.trim()}
+              >
+                {verifying ? 'Verifying…' : 'Verify'}
+              </button>
             </div>
-            <div className="verify-card">
-              <div className="verify-form">
-                <label className="verify-label">Credential code</label>
-                <div className="verify-row">
-                  <input
-                    className="input input-verify"
-                    value={verifyCode}
-                    onChange={(e) => setVerifyCode(e.target.value)}
-                    placeholder="e.g. UR-EXAM-2025-26-AB12"
-                    spellCheck={false}
-                    disabled={verifying}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={verify}
-                    disabled={verifying || !verifyCode.trim()}
-                  >
-                    {verifying ? 'Verifying…' : 'Verify'}
-                  </button>
-                </div>
+          </div>
+          {verifyResult && (
+            <div className={`verify-result ${verifyResult.valid ? 'verify-valid' : 'verify-invalid'}`}>
+              <span className={`pill ${verifyResult.valid ? 'pill-green' : 'pill-red'}`}>
+                {verifyResult.valid ? 'Valid' : 'Invalid'}
+              </span>
+              <div>
+                <strong>{verifyResult.credential?.title || '—'}</strong>
+                <span>{verifyResult.reason}</span>
               </div>
-              {verifyResult && (
-                <div className={`verify-result ${verifyResult.valid ? 'verify-valid' : 'verify-invalid'}`}>
-                  <span className={`pill ${verifyResult.valid ? 'pill-green' : 'pill-red'}`}>
-                    {verifyResult.valid ? 'Valid' : 'Invalid'}
-                  </span>
-                  <div>
-                    <strong>{verifyResult.credential?.title || '—'}</strong>
-                    <span>{verifyResult.reason}</span>
-                  </div>
-                  {verifyResult.credential?.student && (
-                    <div>
-                      <span>{verifyResult.credential.student.fullName}</span>
-                      <span>({verifyResult.credential.student.registrationNumber})</span>
-                    </div>
-                  )}
+              {verifyResult.credential?.student && (
+                <div>
+                  <span>{verifyResult.credential.student.fullName}</span>
+                  <span>({verifyResult.credential.student.registrationNumber})</span>
                 </div>
               )}
             </div>
-          </section>
-        </>
-      )}
+          )}
+        </div>
+      </section>
 
       {!eligibility && !alreadyIssued ? (
         <div className="empty-inline">

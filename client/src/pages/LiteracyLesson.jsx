@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api, { getErrorMessage } from '../api/client.js';
 import Layout from '../components/Layout.jsx';
 import ProgressRing from '../components/ProgressRing.jsx';
@@ -28,12 +28,13 @@ export default function LiteracyLesson() {
           api.get('/literacy/progress'),
         ]);
         if (cancelled) return;
-        if (lessonResult.status === 'fulfilled') setLesson(lessonResult.value.data.lesson);
+        if (lessonResult.status === 'rejected') throw lessonResult.reason;
+        const loadedLesson = lessonResult.value.data.lesson;
+        setLesson(loadedLesson);
         if (progressResult.status === 'fulfilled') {
           const byLesson = progressResult.value.data.progress || {};
-          setProgress(byLesson[String(lessonResult.value.data.lesson?._id)] || null);
+          setProgress(byLesson[String(loadedLesson._id)] || null);
         }
-        if (lessonResult.status === 'rejected') throw lessonResult.reason;
       } catch (err) {
         if (!cancelled) setError(getErrorMessage(err));
       } finally {
@@ -46,13 +47,24 @@ export default function LiteracyLesson() {
     };
   }, [slug]);
 
-  async function markComplete() {
+  const quiz = lesson?.quiz || [];
+
+  function scoreQuiz(answers) {
+    return quiz.reduce((sum, question, index) => {
+      const given = String(answers[index] ?? '').trim();
+      const expected = String(question.correctAnswer ?? '').trim();
+      return given === expected ? sum + 1 : sum;
+    }, 0);
+  }
+
+  async function markComplete(score = 0) {
     if (!lesson) return;
     setSaving(true);
+    setError('');
     try {
       const response = await api.post(`/literacy/${slug}/progress`, {
         completed: true,
-        quizScore: quizSubmitted ? quizScore : 0,
+        quizScore: score,
       });
       setProgress(response.data.progress);
     } catch (err) {
@@ -62,15 +74,8 @@ export default function LiteracyLesson() {
     }
   }
 
-  const quiz = lesson?.quiz || [];
   const answeredCount = Object.values(quizAnswers).filter((v) => String(v).trim()).length;
-  const quizScore = quizSubmitted
-    ? quiz.reduce((sum, q) => {
-        const given = String(quizAnswers[q.instanceId || q.key] || '').trim();
-        const expected = String(q.correctAnswer || '').trim();
-        return given === expected ? sum + 1 : sum;
-      }, 0)
-    : 0;
+  const quizScore = quizSubmitted ? scoreQuiz(quizAnswers) : 0;
   const quizPct = quiz.length ? Math.round((quizScore / quiz.length) * 100) : 0;
   const done = progress?.completed;
 
@@ -114,7 +119,7 @@ export default function LiteracyLesson() {
             <p>{lesson.summary}</p>
             <div className="lesson-meta">
               <span>Track: {lesson.track}</span>
-              <span>{pluralize(lesson.objectives.length, 'learning objective')}</span>
+              <span>{pluralize((lesson.objectives || []).length, 'learning objective')}</span>
               <span>{done ? 'Completed' : 'Not started'}</span>
             </div>
           </div>
@@ -123,7 +128,7 @@ export default function LiteracyLesson() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={markComplete}
+                onClick={() => markComplete(quizSubmitted ? scoreQuiz(quizAnswers) : 0)}
                 disabled={saving}
               >
                 {saving ? 'Saving…' : 'Mark as complete'}
@@ -146,7 +151,7 @@ export default function LiteracyLesson() {
           </div>
         </div>
         <ul className="objective-list">
-          {lesson.objectives.map((objective, index) => (
+          {(lesson.objectives || []).map((objective, index) => (
             <li key={index}>
               <span className="objective-chip">{index + 1}</span>
               {objective}
@@ -163,11 +168,11 @@ export default function LiteracyLesson() {
           </div>
         </div>
         <div className="lesson-sections">
-          {lesson.sections.map((section, index) => (
+          {(lesson.sections || []).map((section, index) => (
             <article className="lesson-section" key={index}>
               <h3>{section.heading}</h3>
               <p>{section.body}</p>
-              {section.tips.length ? (
+              {section.tips?.length ? (
                 <div className="tips-list">
                   <span className="eyebrow">Tips</span>
                   <ul>
@@ -205,7 +210,7 @@ export default function LiteracyLesson() {
                 </div>
                 <div className="quiz-options">
                   {question.options.map((option) => {
-                    const selected = String(quizAnswers[question.key || index]) === String(option.key);
+                    const selected = String(quizAnswers[index]) === String(option.key);
                     return (
                       <button
                         type="button"
@@ -214,7 +219,7 @@ export default function LiteracyLesson() {
                         onClick={() =>
                           setQuizAnswers((previous) => ({
                             ...previous,
-                            [question.key || index]: option.key,
+                            [index]: option.key,
                           }))
                         }
                       >
@@ -240,7 +245,7 @@ export default function LiteracyLesson() {
                 />
                 <div className="quiz-review">
                   {quiz.map((question, index) => {
-                    const given = String(quizAnswers[question.key || index] || '').trim();
+                    const given = String(quizAnswers[index] || '').trim();
                     const expected = String(question.correctAnswer || '').trim();
                     const correct = given === expected;
                     return (
@@ -272,7 +277,7 @@ export default function LiteracyLesson() {
                     className="btn btn-primary"
                     onClick={() => {
                       setQuizSubmitted(true);
-                      markComplete();
+                      markComplete(scoreQuiz(quizAnswers));
                     }}
                   >
                     Save score & complete lesson

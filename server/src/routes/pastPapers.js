@@ -5,7 +5,7 @@ import { Assessment } from '../models/Assessment.js';
 import { ExamSession } from '../models/ExamSession.js';
 import { authenticate } from '../middleware/auth.js';
 import { ApiError, asyncHandler, requireFields } from '../utils/errors.js';
-import { buildQuestionInstances } from '../services/sessionService.js';
+import { env } from '../config/env.js';
 import crypto from 'node:crypto';
 
 const router = express.Router();
@@ -225,6 +225,7 @@ router.post(
       assessment: assessment._id,
       mode: 'practice',
       status: 'in_progress',
+      begun: false,
       startedAt,
       endsAt,
       durationSeconds,
@@ -245,6 +246,8 @@ router.post(
         id: session._id,
         status: session.status,
         mode: session.mode,
+        begun: false,
+        begunAt: null,
         startedAt: session.startedAt,
         endsAt: session.endsAt,
         serverNow: new Date().toISOString(),
@@ -253,7 +256,7 @@ router.post(
         currentIndex: session.currentIndex,
         hintsUsed: session.hintsUsed,
         tabSwitchCount: session.tabSwitchCount,
-        maxTabSwitches: 3,
+        maxTabSwitches: env.maxTabSwitches,
         answeredCount: 0,
         totalQuestions: questions.length,
         questions: questions.map((q) => ({

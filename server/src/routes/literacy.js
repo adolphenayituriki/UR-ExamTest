@@ -18,20 +18,22 @@ router.get(
 );
 
 router.get(
+  '/progress',
+  asyncHandler(async (req, res) => {
+    const entries = await LiteracyProgress.find({ student: req.student._id }).lean();
+    const progress = Object.fromEntries(
+      entries.map((entry) => [String(entry.lesson), entry])
+    );
+    res.json({ progress });
+  })
+);
+
+router.get(
   '/:slug',
   asyncHandler(async (req, res) => {
     const lesson = await LiteracyLesson.findOne({ slug: req.params.slug }).lean();
     if (!lesson) throw new ApiError(404, 'Literacy lesson not found.');
     res.json({ lesson });
-  })
-);
-
-router.get(
-  '/progress',
-  asyncHandler(async (req, res) => {
-    const progress = await LiteracyProgress.find({ student: req.student._id }).lean();
-    const byLesson = new Map(progress.map((entry) => [String(entry.lesson), entry]));
-    res.json({ progress: byLesson });
   })
 );
 
