@@ -34,6 +34,14 @@ const otpVerifyLimiter = rateLimit({
   message: { message: 'Too many verification attempts. Try again in 15 minutes.' },
 });
 
+const staffLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Try again in 15 minutes.' },
+});
+
 router.post(
   '/verify',
   handshakeLimiter,
@@ -74,26 +82,31 @@ router.post(
 );
 
 router.post(
-  '/staff/otp/request',
-  otpRequestLimiter,
+  '/staff/login',
+  staffLoginLimiter,
   asyncHandler(async (req, res) => {
-    requireFields(req.body, ['staffId']);
-    const staffId = String(req.body.staffId).trim().toUpperCase();
+    requireFields(req.body, ['email', 'password']);
+    const email = String(req.body.email).trim().toLowerCase();
+    const password = String(req.body.password);
 
-    const staff = await Student.findOne({ registrationNumber: staffId, role: { $in: ['lecturer', 'admin'] } });
+    const staff = await Student.findOne({ email, role: { $in: ['lecturer', 'admin'] } });
     if (!staff) {
-      throw new ApiError(404, 'Staff member not found.');
+      throw new ApiError(401, 'Invalid email or password.');
     }
-    if (!staff.email) {
-      throw new ApiError(400, 'No email on file for this staff member. Contact IT to update your profile.');
+    if (!staff.verifyPassword || !staff.verifyPassword(password)) {
+      throw new ApiError(401, 'Invalid email or password.');
     }
     if (staff.enrollmentStatus !== 'active') {
       throw new ApiError(403, 'Staff account is not active.');
     }
 
-    await requestOTP(staffId, staff.email, staff.fullName, 'staff-login');
+    await requestOTP(staff.registrationNumber, staff.email, staff.fullName, 'staff-login');
 
-    res.json({ message: 'OTP sent to your registered email.', emailMasked: maskEmail(staff.email) });
+    res.json({
+      message: 'OTP sent to your registered email.',
+      emailMasked: maskEmail(staff.email),
+      staffId: staff.registrationNumber,
+    });
   })
 );
 

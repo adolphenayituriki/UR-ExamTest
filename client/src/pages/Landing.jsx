@@ -14,7 +14,6 @@ import {
   FaLightbulb,
   FaUserTie,
   FaUserGraduate,
-  FaEnvelope,
   FaLock,
 } from 'react-icons/fa6';
 
@@ -51,14 +50,14 @@ const DEMO_ACCOUNTS = [
 
 const STAFF_DEMO_ACCOUNTS = [
   {
-    reg: 'STAFF001',
+    email: 'jean.uwizeyimana@ur.ac.rw',
     password: 'StaffPass1',
     name: 'Dr. UWIZEYIMANA Jean',
     detail: 'Lecturer · Computer Science',
     note: 'Manage courses & assessments',
   },
   {
-    reg: 'STAFF002',
+    email: 'grace.mukeshimana@ur.ac.rw',
     password: 'StaffPass2',
     name: 'Prof. MUKESHIMANA Grace',
     detail: 'Senior Lecturer · Software Engineering',
@@ -112,10 +111,6 @@ function isNineDigits(value) {
   return /^\d{9}$/.test(String(value || '').trim());
 }
 
-function isStaffId(value) {
-  return /^STAFF\d{3}$/i.test(String(value || '').trim());
-}
-
 export default function Landing() {
   const navigate = useNavigate();
   const { login, notice, clearNotice } = useAuth();
@@ -130,6 +125,8 @@ export default function Landing() {
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
 
   async function signIn(reg, password) {
     setError('');
@@ -156,32 +153,38 @@ export default function Landing() {
       setError('Enter the 9-digit registration number (digits only).');
       return;
     }
-    if (userType === 'staff' && !isStaffId(reg)) {
-      setError('Enter your staff ID (e.g., STAFF001).');
-      return;
-    }
     setError('');
     clearNotice();
 
     if (userType === 'student') {
       setStep('pin');
-    } else {
-      requestStaffOTP(reg);
     }
   }
 
-  async function requestStaffOTP(staffId) {
-    setLoading(true);
+  async function handleStaffLogin(event) {
+    event.preventDefault();
+    const email = staffEmail.trim().toLowerCase();
+    const password = staffPassword;
+    if (!email || !password) {
+      setError('Enter your email and password.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Enter a valid email address.');
+      return;
+    }
     setError('');
+    setLoading(true);
     try {
-      await api.post('/auth/staff/otp/request', { staffId });
+      const response = await api.post('/auth/staff/login', { email, password });
+      setRegistrationNumber(response.data.staffId);
       setOtpSent(true);
       setStep('otp-verify');
       setOtpCode('');
       startResendTimer();
       toast('OTP sent to your registered email.', 'success');
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to send OTP.'));
+      setError(getErrorMessage(err, 'Invalid email or password.'));
     } finally {
       setLoading(false);
     }
@@ -189,7 +192,17 @@ export default function Landing() {
 
   async function resendOTP() {
     if (resendTimer > 0) return;
-    await requestStaffOTP(registrationNumber.trim().toUpperCase());
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/staff/login', { email: staffEmail.trim().toLowerCase(), password: staffPassword });
+      setRegistrationNumber(response.data.staffId);
+      startResendTimer();
+      toast('New OTP sent to your email.', 'success');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to resend OTP.'));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function startResendTimer() {
@@ -258,6 +271,8 @@ export default function Landing() {
     setOtpCode('');
     setOtpSent(false);
     setResendTimer(0);
+    setStaffEmail('');
+    setStaffPassword('');
     setError('');
     clearNotice();
   }
@@ -320,35 +335,84 @@ export default function Landing() {
             </div>
           )}
 
-          {step === 'reg' && (
+          {step === 'reg' && userType === 'student' && (
             <form className="access-form" onSubmit={handleRegSubmit}>
               <label className="access-label" htmlFor="registration-number">
-                {userType === 'student' ? 'Registration number' : 'Staff ID'}
+                Registration number
               </label>
               <div className="access-row">
                 <span className="access-prefix" aria-hidden="true">
-                  {userType === 'student' ? 'UR' : 'ID'}
+                  UR
                 </span>
                 <input
                   id="registration-number"
                   className="access-input"
                   value={registrationNumber}
-                  onChange={(event) => setRegistrationNumber(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                  placeholder={userType === 'student' ? 'e.g. 224xxxxxx or 225090098' : 'e.g. STAFF001'}
+                  onChange={(event) => setRegistrationNumber(event.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 224xxxxxx or 225090098"
                   autoComplete="off"
                   spellCheck={false}
-                  maxLength={userType === 'student' ? 9 : 8}
+                  maxLength={9}
                   disabled={loading}
                 />
                 <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
                   {loading ? <span className="spinner spinner-sm" /> : null}
-                  {loading ? 'Checking' : userType === 'student' ? 'Start practising' : 'Continue'}
+                  {loading ? 'Checking' : 'Start practising'}
                 </button>
               </div>
               <p className="access-note">
-                {userType === 'student'
-                  ? 'Use your UR registration number. One active session per student.'
-                  : 'A one-time code will be sent to your registered UR email.'}
+                Use your UR registration number. One active session per student.
+              </p>
+            </form>
+          )}
+
+          {step === 'reg' && userType === 'staff' && (
+            <form className="access-form" onSubmit={handleStaffLogin}>
+              <label className="access-label" htmlFor="staff-email">
+                Email address
+              </label>
+              <div className="access-row">
+                <span className="access-prefix" aria-hidden="true">
+                  @
+                </span>
+                <input
+                  id="staff-email"
+                  className="access-input"
+                  type="email"
+                  value={staffEmail}
+                  onChange={(event) => setStaffEmail(event.target.value.toLowerCase())}
+                  placeholder="your.name@ur.ac.rw"
+                  autoComplete="email"
+                  spellCheck={false}
+                  disabled={loading}
+                />
+                <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
+                  {loading ? <span className="spinner spinner-sm" /> : null}
+                  {loading ? 'Checking' : 'Continue'}
+                </button>
+              </div>
+
+              <label className="access-label" htmlFor="staff-password" style={{ marginTop: '14px' }}>
+                Password
+              </label>
+              <div className="access-row">
+                <span className="access-prefix" aria-hidden="true">
+                  <FaLock aria-hidden="true" />
+                </span>
+                <input
+                  id="staff-password"
+                  className="access-input"
+                  type="password"
+                  value={staffPassword}
+                  onChange={(event) => setStaffPassword(event.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  spellCheck={false}
+                  disabled={loading}
+                />
+              </div>
+              <p className="access-note">
+                After verification, a one-time code will be sent to your email.
               </p>
             </form>
           )}
@@ -380,7 +444,7 @@ export default function Landing() {
                 </button>
               </div>
               <p className="access-note">
-                Code sent to your UR email. Expires in 10 minutes.
+                Code sent to <strong>{otpSent && maskEmail(staffEmail)}</strong>. Expires in 10 minutes.
               </p>
               <button
                 type="button"
@@ -400,7 +464,7 @@ export default function Landing() {
                   setError('');
                 }}
               >
-                Change staff ID
+                Change email
               </button>
             </form>
           )}
@@ -502,7 +566,7 @@ export default function Landing() {
             {currentDemoAccounts.map((account) => {
               const blocked = account.reg === '990012020';
               return (
-                <article className={`demo-card ${blocked ? 'demo-blocked' : ''}`} key={account.reg}>
+                <article className={`demo-card ${blocked ? 'demo-blocked' : ''}`} key={account.reg || account.email}>
                   <div className="demo-head">
                     <div>
                       <strong>{account.name}</strong>
@@ -514,14 +578,22 @@ export default function Landing() {
                   </div>
                   <p>{account.note}</p>
                   <div className="demo-foot">
-                    <code>{account.reg}</code>
+                    <code>{account.reg || account.email}</code>
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
-                      onClick={() => handleDemo(account.reg, account.password)}
+                      onClick={() => {
+                        if (userType === 'student') {
+                          handleDemo(account.reg, account.password);
+                        } else {
+                          setStaffEmail(account.email);
+                          setStaffPassword(account.password);
+                          handleStaffLogin({ preventDefault: () => {} });
+                        }
+                      }}
                       disabled={loading}
                     >
-                      {loadingDemo === account.reg ? 'Checking...' : blocked ? 'Test block' : 'Open'}
+                      {loadingDemo === (account.reg || account.email) ? 'Checking...' : blocked ? 'Test block' : 'Open'}
                     </button>
                   </div>
                 </article>
@@ -538,4 +610,10 @@ export default function Landing() {
       </footer>
     </div>
   );
+}
+
+function maskEmail(email) {
+  const [local, domain] = email.split('@');
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  return `${local[0]}${'•'.repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
 }
