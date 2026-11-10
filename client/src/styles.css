@@ -1230,6 +1230,50 @@ select {
   border-left-color: var(--accent);
 }
 
+/* User type toggle */
+.user-type-toggle {
+  display: flex;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.user-type-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.user-type-btn:hover {
+  color: var(--ink);
+  background: var(--card);
+}
+
+.user-type-btn.active {
+  color: var(--brand);
+  background: var(--brand-tint);
+  box-shadow: var(--shadow-sm);
+}
+
+.user-type-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .landing-section {
   max-width: 1220px;
   margin: 0 auto;

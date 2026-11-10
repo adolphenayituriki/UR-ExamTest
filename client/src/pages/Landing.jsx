@@ -10,6 +10,8 @@ import {
   FaGraduationCap,
   FaUsers,
   FaLightbulb,
+  FaUserTie,
+  FaUserGraduate,
 } from 'react-icons/fa6';
 
 const DEMO_ACCOUNTS = [
@@ -40,6 +42,23 @@ const DEMO_ACCOUNTS = [
     name: 'KAMIKAZI Claudine',
     detail: 'Inactive enrollment',
     note: 'Shows an inactive record',
+  },
+];
+
+const STAFF_DEMO_ACCOUNTS = [
+  {
+    reg: 'STAFF001',
+    password: 'StaffPass1',
+    name: 'Dr. UWIZEYIMANA Jean',
+    detail: 'Lecturer · Computer Science',
+    note: 'Manage courses & assessments',
+  },
+  {
+    reg: 'STAFF002',
+    password: 'StaffPass2',
+    name: 'Prof. MUKESHIMANA Grace',
+    detail: 'Senior Lecturer · Software Engineering',
+    note: 'Review student analytics',
   },
 ];
 
@@ -89,6 +108,10 @@ function isNineDigits(value) {
   return /^\d{9}$/.test(String(value || '').trim());
 }
 
+function isStaffId(value) {
+  return /^STAFF\d{3}$/i.test(String(value || '').trim());
+}
+
 export default function Landing() {
   const navigate = useNavigate();
   const { login, notice, clearNotice } = useAuth();
@@ -98,15 +121,16 @@ export default function Landing() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState('');
+  const [userType, setUserType] = useState('student');
 
   async function signIn(reg, password) {
     setError('');
     setLoading(true);
     try {
       await login(reg, password);
-      navigate('/dashboard');
+      navigate(userType === 'staff' ? '/staff/dashboard' : '/dashboard');
     } catch (err) {
-      setError(getErrorMessage(err, 'Verification failed. Please check your registration number.'));
+      setError(getErrorMessage(err, 'Verification failed. Please check your credentials.'));
     } finally {
       setLoading(false);
       setLoadingDemo('');
@@ -115,13 +139,17 @@ export default function Landing() {
 
   function handleRegSubmit(event) {
     event.preventDefault();
-    const reg = registrationNumber.trim();
+    const reg = registrationNumber.trim().toUpperCase();
     if (!reg) {
-      setError('Enter your University of Rwanda registration number.');
+      setError(userType === 'student' ? 'Enter your University of Rwanda registration number.' : 'Enter your staff ID.');
       return;
     }
-    if (!isNineDigits(reg)) {
+    if (userType === 'student' && !isNineDigits(reg)) {
       setError('Enter the 9-digit registration number (digits only).');
+      return;
+    }
+    if (userType === 'staff' && !isStaffId(reg)) {
+      setError('Enter your staff ID (e.g., STAFF001).');
       return;
     }
     setError('');
@@ -149,6 +177,17 @@ export default function Landing() {
     await signIn(reg, password);
   }
 
+  function switchUserType(type) {
+    setUserType(type);
+    setStep('reg');
+    setRegistrationNumber('');
+    setPin('');
+    setError('');
+    clearNotice();
+  }
+
+  const currentDemoAccounts = userType === 'student' ? DEMO_ACCOUNTS : STAFF_DEMO_ACCOUNTS;
+
   return (
     <div className="landing">
       <header className="landing-nav">
@@ -162,7 +201,7 @@ export default function Landing() {
       <section className="hero">
         <div className="hero-copy">
           <span className="eyebrow">University of Rwanda · ExamLab</span>
-          <h1>Practise like it’s exam day.</h1>
+          <h1>Practise like it's exam day.</h1>
           <p className="hero-lede">
             Past papers, timed mock exams and instant feedback, built for UR students.
           </p>
@@ -177,7 +216,28 @@ export default function Landing() {
         </div>
 
         <div className="hero-login">
-          <h2>Student sign in</h2>
+          <div className="user-type-toggle" role="tablist" aria-label="Select user type">
+            <button
+              role="tab"
+              aria-selected={userType === 'student'}
+              className={`user-type-btn ${userType === 'student' ? 'active' : ''}`}
+              onClick={() => switchUserType('student')}
+            >
+              <FaUserGraduate aria-hidden="true" />
+              <span>Student</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={userType === 'staff'}
+              className={`user-type-btn ${userType === 'staff' ? 'active' : ''}`}
+              onClick={() => switchUserType('staff')}
+            >
+              <FaUserTie aria-hidden="true" />
+              <span>Staff</span>
+            </button>
+          </div>
+
+          <h2>{userType === 'student' ? 'Student sign in' : 'Staff sign in'}</h2>
           {(error || notice) && (
             <div className={`alert ${error ? 'alert-error' : 'alert-warning'}`} role="alert">
               {error || notice}
@@ -186,30 +246,32 @@ export default function Landing() {
           {step === 'reg' && (
             <form className="access-form" onSubmit={handleRegSubmit}>
               <label className="access-label" htmlFor="registration-number">
-                Registration number
+                {userType === 'student' ? 'Registration number' : 'Staff ID'}
               </label>
               <div className="access-row">
                 <span className="access-prefix" aria-hidden="true">
-                  UR
+                  {userType === 'student' ? 'UR' : 'ID'}
                 </span>
                 <input
                   id="registration-number"
                   className="access-input"
                   value={registrationNumber}
-                  onChange={(event) => setRegistrationNumber(event.target.value.replace(/\D/g, ''))}
-                  placeholder="e.g. 224xxxxxx or 225090098"
+                  onChange={(event) => setRegistrationNumber(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                  placeholder={userType === 'student' ? 'e.g. 224xxxxxx or 225090098' : 'e.g. STAFF001'}
                   autoComplete="off"
                   spellCheck={false}
-                  maxLength={9}
+                  maxLength={userType === 'student' ? 9 : 8}
                   disabled={loading}
                 />
                 <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
                   {loading ? <span className="spinner spinner-sm" /> : null}
-                  {loading ? 'Checking' : 'Start practising'}
+                  {loading ? 'Checking' : userType === 'student' ? 'Start practising' : 'Continue'}
                 </button>
               </div>
               <p className="access-note">
-                Use your UR registration number. One active session per student.
+                {userType === 'student'
+                  ? 'Use your UR registration number. One active session per student.'
+                  : 'Use your UR staff credentials. Lecturers and administrators only.'}
               </p>
             </form>
           )}
@@ -236,7 +298,7 @@ export default function Landing() {
                 </button>
               </div>
               <p className="access-note">
-                Registration number: {registrationNumber}
+                {userType === 'student' ? 'Registration number' : 'Staff ID'}: {registrationNumber}
               </p>
               <button
                 type="button"
@@ -247,7 +309,7 @@ export default function Landing() {
                   setError('');
                 }}
               >
-                Change registration number
+                Change {userType === 'student' ? 'registration number' : 'staff ID'}
               </button>
             </form>
           )}
@@ -300,11 +362,11 @@ export default function Landing() {
         <div className="demo-layout">
           <div className="section-heading">
             <span className="eyebrow">Try it</span>
-            <h2>Open a demo student.</h2>
+            <h2>Open a demo {userType === 'student' ? 'student' : 'staff'}.</h2>
             <p>Jump straight in with a sample account.</p>
           </div>
           <div className="demo-grid">
-            {DEMO_ACCOUNTS.map((account) => {
+            {currentDemoAccounts.map((account) => {
               const blocked = account.reg === '990012020';
               return (
                 <article className={`demo-card ${blocked ? 'demo-blocked' : ''}`} key={account.reg}>
@@ -326,7 +388,7 @@ export default function Landing() {
                       onClick={() => handleDemo(account.reg, account.password)}
                       disabled={loading}
                     >
-                      {loadingDemo === account.reg ? 'Checking…' : blocked ? 'Test block' : 'Open'}
+                      {loadingDemo === account.reg ? 'Checking...' : blocked ? 'Test block' : 'Open'}
                     </button>
                   </div>
                 </article>
