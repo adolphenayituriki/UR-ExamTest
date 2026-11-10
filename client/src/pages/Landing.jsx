@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { getErrorMessage } from '../api/client.js';
 import Logo from '../components/Logo.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import api from '../api/client.js';
+import { useToast } from '../components/Toast.jsx';
 import {
   FaClock,
   FaCheckDouble,
@@ -12,6 +14,8 @@ import {
   FaLightbulb,
   FaUserTie,
   FaUserGraduate,
+  FaEnvelope,
+  FaLock,
 } from 'react-icons/fa6';
 
 const DEMO_ACCOUNTS = [
@@ -115,6 +119,7 @@ function isStaffId(value) {
 export default function Landing() {
   const navigate = useNavigate();
   const { login, notice, clearNotice } = useAuth();
+  const { toast } = useToast();
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [pin, setPin] = useState('');
   const [step, setStep] = useState('reg');
@@ -122,6 +127,9 @@ export default function Landing() {
   const [loading, setLoading] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState('');
   const [userType, setUserType] = useState('student');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
 
   async function signIn(reg, password) {
     setError('');
@@ -154,7 +162,47 @@ export default function Landing() {
     }
     setError('');
     clearNotice();
-    setStep('pin');
+
+    if (userType === 'student') {
+      setStep('pin');
+    } else {
+      requestStaffOTP(reg);
+    }
+  }
+
+  async function requestStaffOTP(staffId) {
+    setLoading(true);
+    setError('');
+    try {
+      await api.post('/auth/staff/otp/request', { staffId });
+      setOtpSent(true);
+      setStep('otp-verify');
+      setOtpCode('');
+      startResendTimer();
+      toast('OTP sent to your registered email.', 'success');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to send OTP.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resendOTP() {
+    if (resendTimer > 0) return;
+    await requestStaffOTP(registrationNumber.trim().toUpperCase());
+  }
+
+  function startResendTimer() {
+    setResendTimer(60);
+    const interval = setInterval(() => {
+      setResendTimer((t) => {
+        if (t <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
   }
 
   async function handlePinSubmit(event) {
@@ -166,6 +214,31 @@ export default function Landing() {
     setError('');
     clearNotice();
     await signIn(registrationNumber.trim(), pin.trim());
+  }
+
+  async function handleOtpVerify(event) {
+    event.preventDefault();
+    const code = otpCode.trim();
+    if (!code || code.length !== 6) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/staff/otp/verify', {
+        staffId: registrationNumber.trim().toUpperCase(),
+        code,
+      });
+      const { token, student } = response.data;
+      localStorage.setItem('examlab_token', token);
+      localStorage.setItem('examlab_student', JSON.stringify(student));
+      navigate('/staff/dashboard');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Invalid or expired code.'));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleDemo(reg, password) {
@@ -182,6 +255,9 @@ export default function Landing() {
     setStep('reg');
     setRegistrationNumber('');
     setPin('');
+    setOtpCode('');
+    setOtpSent(false);
+    setResendTimer(0);
     setError('');
     clearNotice();
   }
@@ -243,6 +319,7 @@ export default function Landing() {
               {error || notice}
             </div>
           )}
+
           {step === 'reg' && (
             <form className="access-form" onSubmit={handleRegSubmit}>
               <label className="access-label" htmlFor="registration-number">
@@ -271,16 +348,72 @@ export default function Landing() {
               <p className="access-note">
                 {userType === 'student'
                   ? 'Use your UR registration number. One active session per student.'
-                  : 'Use your UR staff credentials. Lecturers and administrators only.'}
+                  : 'A one-time code will be sent to your registered UR email.'}
               </p>
             </form>
           )}
-          {step === 'pin' && (
+
+          {userType === 'staff' && step === 'otp-verify' && (
+            <form className="access-form" onSubmit={handleOtpVerify}>
+              <label className="access-label" htmlFor="otp-code">
+                One-time code
+              </label>
+              <div className="access-row">
+                <span className="access-prefix" aria-hidden="true">
+                  <FaLock aria-hidden="true" />
+                </span>
+                <input
+                  id="otp-code"
+                  className="access-input otp-input"
+                  value={otpCode}
+                  onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit code"
+                  autoComplete="one-time-code"
+                  spellCheck={false}
+                  maxLength={6}
+                  disabled={loading}
+                  style={{ letterSpacing: '0.5em', textAlign: 'center', fontFamily: 'var(--mono)' }}
+                />
+                <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
+                  {loading ? <span className="spinner spinner-sm" /> : null}
+                  {loading ? 'Verifying' : 'Verify & sign in'}
+                </button>
+              </div>
+              <p className="access-note">
+                Code sent to your UR email. Expires in 10 minutes.
+              </p>
+              <button
+                type="button"
+                className="btn btn-link"
+                onClick={resendOTP}
+                disabled={resendTimer > 0 || loading}
+              >
+                {resendTimer > 0 ? `Resend code ({resendTimer}s)` : 'Resend code'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-link"
+                onClick={() => {
+                  setStep('reg');
+                  setOtpCode('');
+                  setOtpSent(false);
+                  setError('');
+                }}
+              >
+                Change staff ID
+              </button>
+            </form>
+          )}
+
+          {userType === 'student' && step === 'pin' && (
             <form className="access-form" onSubmit={handlePinSubmit}>
               <label className="access-label" htmlFor="pin">
                 Password / PIN
               </label>
               <div className="access-row">
+                <span className="access-prefix" aria-hidden="true">
+                  <FaLock aria-hidden="true" />
+                </span>
                 <input
                   id="pin"
                   className="access-input"
@@ -298,7 +431,7 @@ export default function Landing() {
                 </button>
               </div>
               <p className="access-note">
-                {userType === 'student' ? 'Registration number' : 'Staff ID'}: {registrationNumber}
+                Registration number: {registrationNumber}
               </p>
               <button
                 type="button"
@@ -309,7 +442,7 @@ export default function Landing() {
                   setError('');
                 }}
               >
-                Change {userType === 'student' ? 'registration number' : 'staff ID'}
+                Change registration number
               </button>
             </form>
           )}

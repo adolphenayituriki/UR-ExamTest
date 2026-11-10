@@ -962,6 +962,12 @@ select {
   padding: 11px 20px;
 }
 
+.otp-input {
+  letter-spacing: 0.5em !important;
+  text-align: center !important;
+  font-family: var(--mono) !important;
+}
+
 .access-note {
   margin-top: 13px;
   font-size: 0.76rem;
