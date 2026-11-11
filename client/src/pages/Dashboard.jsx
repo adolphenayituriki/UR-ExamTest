@@ -21,8 +21,13 @@ const SEMESTER_OPTIONS = [
 ];
 
 export default function Dashboard() {
-  const { student } = useAuth();
+  const { student, isStaff } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isStaff) navigate('/staff/dashboard', { replace: true });
+  }, [isStaff, navigate]);
+
   const [courses, setCourses] = useState([]);
   const [overview, setOverview] = useState(null);
   const [activeSession, setActiveSession] = useState(null);

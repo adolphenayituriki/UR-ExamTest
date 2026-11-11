@@ -47,6 +47,16 @@ export function AuthProvider({ children }) {
     return response.data;
   }, []);
 
+  // Completes the staff email + OTP two-factor flow using the token and
+  // profile returned by POST /auth/staff/otp/verify.
+  const completeStaffLogin = useCallback((token, student) => {
+    const next = { token, student };
+    writeStoredAuth(next);
+    setAuth(next);
+    setNotice('');
+    return next;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout');
@@ -58,17 +68,24 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const role = auth?.student?.role || null;
+
   const value = useMemo(
     () => ({
       student: auth?.student || null,
       token: auth?.token || null,
+      role,
       isAuthenticated: Boolean(auth?.token),
+      isStudent: role === 'student',
+      isStaff: role === 'lecturer' || role === 'admin',
+      isAdmin: role === 'admin',
       login,
+      completeStaffLogin,
       logout,
       notice,
       clearNotice: () => setNotice(''),
     }),
-    [auth, login, logout, notice]
+    [auth, role, login, completeStaffLogin, logout, notice]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

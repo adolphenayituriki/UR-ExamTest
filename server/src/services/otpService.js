@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { OTP } from '../models/OTP.js';
 import { sendOTPEmail } from './emailService.js';
 
@@ -6,7 +7,7 @@ const OTP_TTL_MINUTES = 10;
 const MAX_ATTEMPTS = 3;
 
 function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(10 ** (OTP_LENGTH - 1), 10 ** OTP_LENGTH).toString();
 }
 
 export async function requestOTP(identifier, email, name, type = 'staff-login') {
@@ -42,10 +43,12 @@ export async function verifyOTP(identifier, code, type = 'staff-login') {
   otpDoc.attempts += 1;
   await otpDoc.save();
 
-  if (otpDoc.code !== code) {
+  const codeMatches =
+    otpDoc.code.length === code.length &&
+    crypto.timingSafeEqual(Buffer.from(otpDoc.code), Buffer.from(code));
+  if (!codeMatches) {
     return { valid: false, reason: 'invalid', attemptsRemaining: MAX_ATTEMPTS - otpDoc.attempts };
   }
-
   otpDoc.consumed = true;
   await otpDoc.save();
 

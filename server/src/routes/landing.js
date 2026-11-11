@@ -173,7 +173,7 @@ router.get(
             email: 'jean.uwizeyimana@ur.ac.rw',
             password: 'StaffPass1',
             name: 'Dr. UWIZEYIMANA Jean',
-            detail: 'Lecturer · Computer Science',
+            detail: 'Lecturer · Software Engineering',
             note: 'Manage courses & assessments',
             avatar: 'UJ',
             userType: 'staff',

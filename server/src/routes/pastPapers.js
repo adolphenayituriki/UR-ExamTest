@@ -4,7 +4,7 @@ import { Course } from '../models/Course.js';
 import { Assessment } from '../models/Assessment.js';
 import { ExamSession } from '../models/ExamSession.js';
 import { authenticate } from '../middleware/auth.js';
-import { ApiError, asyncHandler, requireFields } from '../utils/errors.js';
+import { ApiError, asyncHandler } from '../utils/errors.js';
 import { env } from '../config/env.js';
 import crypto from 'node:crypto';
 
@@ -94,13 +94,13 @@ router.get(
           title: section.title,
           instructions: section.instructions,
           marks: section.marks,
+          // Answers and explanations are intentionally withheld until the
+          // paper is attempted as a graded practice session.
           questions: section.questions.map((q) => ({
             number: q.number,
             type: q.type,
             prompt: q.prompt,
             options: q.options,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation,
             marks: q.marks,
             topic: q.topic,
           })),
@@ -115,7 +115,6 @@ router.get(
 router.post(
   '/:slug/start',
   asyncHandler(async (req, res) => {
-    requireFields(req.body, []);
     const paper = await PastPaper.findOne({ slug: req.params.slug }).lean();
     if (!paper) throw new ApiError(404, 'Past paper not found.');
 

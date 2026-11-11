@@ -25,7 +25,7 @@ function canonicalize(value) {
 }
 
 function signPayload(payload) {
-  return crypto.createHmac('sha256', env.jwtSecret).update(canonicalize(payload)).digest('hex');
+  return crypto.createHmac('sha256', env.credentialSecret).update(canonicalize(payload)).digest('hex');
 }
 
 export async function computeEligibility(student, academicYear) {

@@ -18,14 +18,6 @@ const handshakeLimiter = rateLimit({
   message: { message: 'Too many verification attempts. Try again in 15 minutes.' },
 });
 
-const otpRequestLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 5,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  message: { message: 'Too many OTP requests. Try again in 15 minutes.' },
-});
-
 const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -49,6 +41,11 @@ router.post(
     requireFields(req.body, ['registrationNumber', 'password']);
     const student = await verifyRegistrationNumber(req.body.registrationNumber);
 
+    // Staff accounts must sign in through the email + OTP two-factor flow.
+    if (student.role && student.role !== 'student') {
+      throw new ApiError(403, 'Staff accounts must sign in with their email and a one-time code.');
+    }
+
     const password = String(req.body.password);
     if (!student.verifyPassword || !student.verifyPassword(password)) {
       throw new ApiError(401, 'Invalid PIN or password.');
@@ -63,6 +60,7 @@ router.post(
         sub: String(student._id),
         reg: student.registrationNumber,
         v: student.tokenVersion,
+        role: 'student',
       },
       env.jwtSecret,
       { expiresIn: env.jwtExpiresIn }

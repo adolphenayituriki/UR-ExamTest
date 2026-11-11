@@ -5,32 +5,45 @@ import Logo from './Logo.jsx';
 import DarkModeToggle from './DarkModeToggle.jsx';
 
 export default function Layout({ children, wide = false }) {
-  const { student, logout } = useAuth();
+  const { student, isStaff, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-inner">
-          <NavLink to="/dashboard" className="brand-link" aria-label="ExamLab dashboard">
+          <NavLink to={isStaff ? '/staff/dashboard' : '/dashboard'} className="brand-link" aria-label="ExamLab dashboard">
             <Logo />
           </NavLink>
           <nav className="topnav">
-            <NavLink to="/dashboard" className="topnav-link">
-              Dashboard
-            </NavLink>
-            <NavLink to="/past-papers" className="topnav-link">
-              Past papers
-            </NavLink>
-            <NavLink to="/literacy" className="topnav-link">
-              Digital literacy
-            </NavLink>
-            <NavLink to="/credentials" className="topnav-link">
-              Credential
-            </NavLink>
-            <NavLink to="/analytics" className="topnav-link">
-              Diagnostics
-            </NavLink>
+            {isStaff ? (
+              <>
+                <NavLink to="/staff/dashboard" className="topnav-link">
+                  Staff dashboard
+                </NavLink>
+                <NavLink to="/analytics" className="topnav-link">
+                  Diagnostics
+                </NavLink>
+              </>
+            ) : (
+              <>
+                <NavLink to="/dashboard" className="topnav-link">
+                  Dashboard
+                </NavLink>
+                <NavLink to="/past-papers" className="topnav-link">
+                  Past papers
+                </NavLink>
+                <NavLink to="/literacy" className="topnav-link">
+                  Digital literacy
+                </NavLink>
+                <NavLink to="/credentials" className="topnav-link">
+                  Credential
+                </NavLink>
+                <NavLink to="/analytics" className="topnav-link">
+                  Diagnostics
+                </NavLink>
+              </>
+            )}
           </nav>
           <div className="topbar-user">
             <div className="avatar avatar-sm" aria-hidden="true">
@@ -39,7 +52,9 @@ export default function Layout({ children, wide = false }) {
             <div className="topbar-user-text">
               <strong>{student?.fullName || 'UR Student'}</strong>
               <span>
-                {student?.registrationNumber || '—'} · Year {student?.yearOfStudy || '—'}
+                {isStaff
+                  ? `${student?.role || 'Staff'} · ${student?.department || 'UR'}`
+                  : `${student?.registrationNumber || '—'} · Year ${student?.yearOfStudy || '—'}`}
               </span>
             </div>
             <DarkModeToggle />

@@ -1,24 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --brand: #138abb;
-  --brand-dark: #0d6f96;
-  --brand-ink: #0a526f;
-  --brand-soft: #eaf6fb;
-  --brand-tint: #f4fafd;
+  --brand: #2563eb;
+  --brand-dark: #1d4ed8;
+  --brand-ink: #1e3a8a;
+  --brand-soft: #e8f0fe;
+  --brand-tint: #f4f7ff;
+  --brand-rgb: 37, 99, 235;
   --accent: #f98012;
   --accent-dark: #cf6500;
   --accent-ink: #9a4c00;
   --accent-soft: #fff1e5;
-  --ink: #1f2a30;
-  --ink-soft: #43515b;
-  --muted: #68767f;
-  --line: #dce2e5;
-  --line-strong: #c6d0d5;
-  --surface: #f2f4f3;
-  --surface-warm: #f7f6f2;
-  --bg: #f6f8f7;
+  --ink: #1b2536;
+  --ink-soft: #44546a;
+  --muted: #6b7a90;
+  --line: #dfe5ef;
+  --line-strong: #c9d3e3;
+  --surface: #eef2f9;
+  --surface-warm: #f5f7fc;
+  --bg: #f4f6fb;
   --card: #ffffff;
+  --card-rgb: 255, 255, 255;
   --green: #2c7a4b;
   --green-soft: #eaf5ee;
   --red: #b94132;
@@ -41,12 +43,14 @@
   --surface: #161e28;
   --surface-warm: #1a2230;
   --bg: #0d131c;
-  --card: #131b26;
-  --brand: #22c5e0;
-  --brand-dark: #38d4e8;
-  --brand-ink: #cffafe;
-  --brand-soft: #0c2a35;
-  --brand-tint: #081822;
+  --card: #121a28;
+  --card-rgb: 18, 26, 40;
+  --brand: #3b82f6;
+  --brand-dark: #60a5fa;
+  --brand-ink: #dbeafe;
+  --brand-soft: #122a52;
+  --brand-tint: #0b1830;
+  --brand-rgb: 59, 130, 246;
   --accent: #fb923c;
   --accent-dark: #fdba74;
   --accent-ink: #fff1e5;
@@ -6437,5 +6441,522 @@ select {
   .dashboard-section,
   .result-hero {
     box-shadow: none;
+  }
+}
+/* =====================================================================
+   Blue brand + compact layout refresh
+   ---------------------------------------------------------------------
+   Final override layer: applies the blue identity and tightens spacing
+   across the marketing pages, app shell and dashboards.
+   ===================================================================== */
+
+/* ----- Page backdrop with a soft blue wash ----- */
+body {
+  background: var(--bg);
+}
+
+/* ----- Landing header ----- */
+.landing-header {
+  padding: 10px clamp(16px, 4vw, 56px);
+  background: var(--card);
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.landing-header-inner {
+  max-width: 1240px;
+  gap: 18px;
+}
+
+.landing-brand {
+  gap: 10px;
+}
+
+.landing-brand-name {
+  font-size: 1.12rem;
+}
+
+.landing-brand-sub {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.nav-link {
+  padding: 7px 11px;
+  font-size: 0.8rem;
+}
+
+/* ----- Hero ----- */
+.hero {
+  display: block;
+  padding: clamp(38px, 5.2vw, 68px) clamp(16px, 4vw, 56px) clamp(42px, 5.6vw, 76px);
+}
+
+.hero-bg {
+  display: none;
+}
+
+.hero-content {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+}
+
+.hero-copy {
+  max-width: 560px;
+  gap: 12px;
+}
+
+.hero-copy-header {
+  gap: 10px;
+}
+
+.hero-copy h1 {
+  font-size: clamp(2rem, 3.6vw, 3.05rem);
+  line-height: 1.06;
+  max-width: 20ch;
+}
+
+.hero-lede {
+  font-size: clamp(0.95rem, 1.05vw, 1.06rem);
+  line-height: 1.62;
+  max-width: 52ch;
+}
+
+.hero-trust-row {
+  gap: 12px 18px;
+}
+
+.hero-trust {
+  gap: 8px 12px;
+}
+
+.hero-trust-item {
+  padding: 5px 10px;
+  font-size: 0.68rem;
+}
+
+.hero-badges {
+  gap: 6px;
+}
+
+.badge {
+  padding: 5px 10px;
+  font-size: 0.6rem;
+}
+
+/* ----- Login card ----- */
+.hero-login-card {
+  padding: 18px;
+  max-width: 400px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+.hero-login-header {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 3px;
+  text-align: left;
+}
+
+.hero-login-header h2 {
+  font-size: 1.08rem;
+}
+
+.hero-login-subtitle {
+  font-size: 0.74rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.access-form {
+  gap: 10px;
+}
+
+.access-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.access-label {
+  min-width: 0;
+  margin-bottom: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.07em;
+}
+
+.access-row {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 42px;
+  border-radius: 3px;
+  border-color: var(--line-strong);
+}
+
+.access-input {
+  padding: 9px 11px;
+  font-size: 0.95rem;
+}
+
+.access-prefix {
+  min-width: 42px;
+  padding: 0 11px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.access-form .btn-block {
+  margin-top: 2px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+}
+
+.access-note {
+  margin-top: 2px;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.otp-row {
+  gap: 0;
+}
+
+.otp-header {
+  gap: 10px;
+}
+
+/* ----- Section rhythm ----- */
+.landing-section {
+  padding: clamp(26px, 3.6vw, 42px) clamp(16px, 4vw, 56px);
+}
+
+.section-header {
+  max-width: 620px;
+  margin-bottom: 20px;
+}
+
+.section-header .eyebrow {
+  font-size: 0.6rem;
+  margin-bottom: 5px;
+}
+
+.section-header h2 {
+  font-size: clamp(1.25rem, 1.9vw, 1.6rem);
+  margin-bottom: 0;
+}
+
+.landing-section .section-lede {
+  display: none;
+}
+
+/* ----- Card grids: compact horizontal rows ----- */
+.steps-grid,
+.features-grid,
+.support-grid-vertical {
+  gap: 10px;
+  max-width: 1080px;
+}
+
+.step-card,
+.feature-card,
+.support-card-modern {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon title"
+    "icon text";
+  column-gap: 11px;
+  align-items: center;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+}
+
+.step-number {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 0.58rem;
+  color: var(--muted);
+}
+
+.step-icon,
+.feature-icon,
+.support-icon {
+  grid-area: icon;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+}
+
+.step-icon svg,
+.feature-icon svg,
+.support-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.step-card h3,
+.feature-card h3,
+.support-card-modern h3 {
+  grid-area: title;
+  font-size: 0.86rem;
+  margin: 0 0 1px;
+  align-self: end;
+}
+
+.step-card p,
+.feature-card p,
+.support-card-modern p {
+  grid-area: text;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  margin: 0;
+  align-self: start;
+}
+
+.step-connector,
+.support-card-glow,
+.hero-orb-2,
+.hero-orb-3 {
+  display: none;
+}
+
+.step-card:hover,
+.feature-card:hover,
+.support-card-modern:hover {
+  border-color: var(--brand);
+  transform: none;
+  box-shadow: none;
+}
+
+.demo-grid {
+  gap: 10px;
+}
+
+.demo-card {
+  padding: 14px;
+  gap: 9px;
+  border-radius: var(--radius-sm);
+}
+
+.demo-avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.demo-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.demo-note {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  min-height: 0;
+}
+
+.demo-foot .btn {
+  padding: 6px 12px;
+  font-size: 0.74rem;
+}
+
+/* ----- Landing footer ----- */
+.landing-footer {
+  padding: 24px clamp(16px, 4vw, 56px) 16px;
+}
+
+.footer-main {
+  padding-bottom: 16px;
+  gap: 16px;
+}
+
+.footer-brand {
+  gap: 10px;
+}
+
+.footer-links {
+  gap: 16px;
+}
+
+.footer-links a {
+  font-size: 0.74rem;
+}
+
+.footer-bottom {
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+/* ----- App shell ----- */
+.topbar {
+  box-shadow: 0 1px 0 rgba(var(--brand-rgb), 0.05);
+}
+
+.topbar-inner {
+  max-width: 1280px;
+  padding: 10px clamp(16px, 3vw, 32px);
+  gap: 18px;
+}
+
+.topnav {
+  gap: 4px;
+}
+
+.topnav-link {
+  padding: 7px 9px;
+  font-size: 0.82rem;
+}
+
+.page {
+  max-width: 1200px;
+  padding: clamp(18px, 2.6vw, 32px) clamp(16px, 2.6vw, 28px) 48px;
+}
+
+.page-wide {
+  max-width: 1320px;
+}
+
+.app-footer {
+  max-width: 1200px;
+  padding: 16px clamp(16px, 2.6vw, 28px) 26px;
+  font-size: 0.7rem;
+}
+
+/* ----- Buttons & forms ----- */
+.btn {
+  padding: 9px 15px;
+  font-size: 0.86rem;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.76rem;
+}
+
+.input,
+.select {
+  font-size: 0.84rem;
+}
+
+/* ----- Dashboard tuning ----- */
+.dashboard-head {
+  margin-bottom: 18px;
+}
+
+.page-lede {
+  font-size: 0.88rem;
+  margin-top: 6px;
+}
+
+.dashboard-hero {
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.profile-card {
+  padding: 20px;
+}
+
+.profile-top {
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-top h2 {
+  font-size: 1.15rem;
+}
+
+.profile-top p {
+  font-size: 0.76rem;
+}
+
+.profile-badges {
+  margin-bottom: 14px;
+}
+
+.profile-meta {
+  gap: 8px 14px;
+  padding: 12px 0;
+  margin-bottom: 14px;
+}
+
+.stat-grid {
+  gap: 10px;
+}
+
+.stat-card {
+  padding: 14px 15px;
+}
+
+.stat-value {
+  font-size: 1.34rem;
+}
+
+.weakness-panel {
+  padding: 17px;
+}
+
+.dashboard-section,
+.result-hero {
+  border-color: var(--line);
+}
+
+/* ----- Responsive tweaks for the compact layer ----- */
+@media (max-width: 900px) {
+  .hero {
+    padding-top: 32px;
+    padding-bottom: 40px;
+  }
+
+  .hero-content {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .hero-login-card {
+    justify-self: stretch;
+    max-width: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .landing-header {
+    padding: 8px 16px;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(1.8rem, 8vw, 2.4rem);
+  }
+}
+
+@media (max-width: 440px) {
+  .access-row {
+    flex-wrap: wrap;
+  }
+
+  .access-submit {
+    flex: 1 0 100%;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
   }
 }

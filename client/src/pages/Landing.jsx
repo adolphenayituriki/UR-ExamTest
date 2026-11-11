@@ -53,7 +53,7 @@ function maskEmail(email) {
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { login, notice, clearNotice } = useAuth();
+  const { login, completeStaffLogin, notice, clearNotice } = useAuth();
   const { toast } = useToast();
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [pin, setPin] = useState('');
@@ -127,10 +127,10 @@ export default function Landing() {
     }
   }
 
-  async function handleStaffLogin(event) {
-    event.preventDefault();
-    const email = staffEmail.trim().toLowerCase();
-    const password = staffPassword;
+  async function handleStaffLogin(event, overrideEmail, overridePassword) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const email = (overrideEmail ?? staffEmail).trim().toLowerCase();
+    const password = overridePassword ?? staffPassword;
     if (!email || !password) {
       setError('Enter your email and password.');
       return;
@@ -210,8 +210,7 @@ export default function Landing() {
         code,
       });
       const { token, student } = response.data;
-      localStorage.setItem('examlab_token', token);
-      localStorage.setItem('examlab_student', JSON.stringify(student));
+      completeStaffLogin(token, student);
       navigate('/staff/dashboard');
     } catch (err) {
       setError(getErrorMessage(err, 'Invalid or expired code.'));
@@ -261,10 +260,6 @@ export default function Landing() {
         <div className="landing-header-inner">
           <div className="landing-brand">
             <Logo />
-            <div className="landing-brand-text">
-              <span className="landing-brand-name">ExamLab</span>
-              <span className="landing-brand-sub">University of Rwanda</span>
-            </div>
           </div>
 
           <nav className="landing-nav" role="navigation" aria-label="Main navigation">
@@ -393,12 +388,12 @@ export default function Landing() {
                         disabled={loading}
                         inputMode="numeric"
                       />
-                      <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
-                        {loading ? <span className="spinner spinner-sm" /> : null}
-                        {loading ? 'Checking…' : 'Start practising'}
-                      </button>
                     </div>
                   </div>
+                  <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+                    {loading ? <span className="spinner spinner-sm" /> : null}
+                    {loading ? 'Checking…' : 'Continue'}
+                  </button>
                   <p className="access-note">
                     Use your UR registration number. One active session per student.
                   </p>
@@ -426,10 +421,6 @@ export default function Landing() {
                         spellCheck={false}
                         disabled={loading}
                       />
-                      <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
-                        {loading ? <span className="spinner spinner-sm" /> : null}
-                        {loading ? 'Checking…' : 'Continue'}
-                      </button>
                     </div>
                   </div>
 
@@ -454,6 +445,10 @@ export default function Landing() {
                       />
                     </div>
                   </div>
+                  <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+                    {loading ? <span className="spinner spinner-sm" /> : null}
+                    {loading ? 'Checking…' : 'Continue'}
+                  </button>
                   <p className="access-note">
                     After verification, a one-time code will be sent to your email.
                   </p>
@@ -489,12 +484,12 @@ export default function Landing() {
                         disabled={loading}
                         inputMode="numeric"
                       />
-                      <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
-                        {loading ? <span className="spinner spinner-sm" /> : null}
-                        {loading ? 'Verifying…' : 'Verify & sign in'}
-                      </button>
                     </div>
                   </div>
+                  <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+                    {loading ? <span className="spinner spinner-sm" /> : null}
+                    {loading ? 'Verifying…' : 'Verify & sign in'}
+                  </button>
                   <p className="access-note">
                     Code expires in 10 minutes. <span className={resendTimer > 0 ? 'text-warning' : ''}>
                       {resendTimer > 0 ? `Resend in ${resendTimer}s` : ''}
@@ -546,12 +541,12 @@ export default function Landing() {
                         spellCheck={false}
                         disabled={loading}
                       />
-                      <button type="submit" className="btn btn-primary access-submit" disabled={loading}>
-                        {loading ? <span className="spinner spinner-sm" /> : null}
-                        {loading ? 'Signing in…' : 'Sign in'}
-                      </button>
                     </div>
                   </div>
+                  <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+                    {loading ? <span className="spinner spinner-sm" /> : null}
+                    {loading ? 'Signing in…' : 'Sign in'}
+                  </button>
                   <p className="access-note">
                     Registration number: <strong>{registrationNumber}</strong>
                   </p>
@@ -576,7 +571,11 @@ export default function Landing() {
           <section key={section.id} id={section.id} className={`landing-section ${section.altBackground ? 'landing-section-alt' : ''}`} aria-labelledby={`${section.id}-title`}>
             <div className="section-header">
               <span className="eyebrow">{section.eyebrow}</span>
-              <h2 id={`${section.id}-title`}>{section.title.replace('{userType}', userType === 'student' ? 'student' : 'staff')}</h2>
+              <h2 id={`${section.id}-title`}>
+                {section.title
+                  .replace('{userType}', userType === 'student' ? 'student' : 'staff')
+                  .replace(/Open a demo (student|staff)\.$/, 'Open a demo $1 account.')}
+              </h2>
               <p className="section-lede">{section.lede}</p>
             </div>
             {section.id === 'how-it-works' && (
@@ -662,7 +661,7 @@ export default function Landing() {
                             } else {
                               setStaffEmail(account.email);
                               setStaffPassword(account.password);
-                              handleStaffLogin({ preventDefault: () => {} });
+                              handleStaffLogin({ preventDefault: () => {} }, account.email, account.password);
                             }
                           }}
                           disabled={loading}
@@ -685,7 +684,6 @@ export default function Landing() {
           <div className="footer-brand">
             <Logo size="sm" />
             <div>
-              <strong>{footer.brandText || 'University of Rwanda · ExamLab'}</strong>
               <span>{footer.brandSubtext || 'For students · 2025/2026'}</span>
             </div>
           </div>

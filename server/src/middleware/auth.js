@@ -42,3 +42,25 @@ export async function authenticate(req, _res, next) {
     next(error);
   }
 }
+
+// Role-based authorization. Must run after `authenticate`; checks the role
+// from the database record (not the JWT payload) so revoked or altered
+// roles take effect immediately.
+export function requireRole(...roles) {
+  if (!roles.length) throw new Error('requireRole requires at least one role.');
+  return (req, _res, next) => {
+    const role = req.student?.role;
+    if (!role) {
+      return next(new ApiError(401, 'Authentication required.'));
+    }
+    if (!roles.includes(role)) {
+      return next(
+        new ApiError(403, 'You do not have permission to access this resource.', {
+          code: 'FORBIDDEN_ROLE',
+          requiredRoles: roles,
+        })
+      );
+    }
+    next();
+  };
+}

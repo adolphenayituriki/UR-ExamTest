@@ -12,16 +12,27 @@ import PastPapers from './pages/PastPapers.jsx';
 import Literacy from './pages/Literacy.jsx';
 import LiteracyLesson from './pages/LiteracyLesson.jsx';
 import Credentials from './pages/Credentials.jsx';
+import StaffDashboard from './pages/StaffDashboard.jsx';
+import VerifyCredential from './pages/VerifyCredential.jsx';
 
-function Protected({ children }) {
-  const { isAuthenticated } = useAuth();
+function RequireRole({ allow, children }) {
+  const { isAuthenticated, role } = useAuth();
   if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!allow.includes(role)) {
+    if (role === 'student') return <Navigate to="/dashboard" replace />;
+    if (role === 'lecturer' || role === 'admin') {
+      return <Navigate to="/staff/dashboard" replace />;
+    }
+    return <Navigate to="/" replace />;
+  }
   return children;
 }
 
 function PublicOnly({ children }) {
-  const { isAuthenticated } = useAuth();
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  const { isAuthenticated, isStaff } = useAuth();
+  if (isAuthenticated) {
+    return <Navigate to={isStaff ? '/staff/dashboard' : '/dashboard'} replace />;
+  }
   return children;
 }
 
@@ -53,76 +64,86 @@ export default function App() {
                   </PublicOnly>
                 }
               />
+              <Route path="/verify" element={<VerifyCredential />} />
+              <Route path="/verify/:code" element={<VerifyCredential />} />
               <Route
                 path="/dashboard"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <Dashboard />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/courses/:courseId"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <Course />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/exam/:sessionId"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <Exam />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/result/:sessionId"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <Result />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/analytics"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <Analytics />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/past-papers"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <PastPapers />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/literacy"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <Literacy />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/literacy/:slug"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <LiteracyLesson />
-                  </Protected>
+                  </RequireRole>
                 }
               />
               <Route
                 path="/credentials"
                 element={
-                  <Protected>
+                  <RequireRole allow={['student']}>
                     <Credentials />
-                  </Protected>
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/staff/dashboard"
+                element={
+                  <RequireRole allow={['lecturer', 'admin']}>
+                    <StaffDashboard />
+                  </RequireRole>
                 }
               />
               <Route path="*" element={<NotFound />} />
