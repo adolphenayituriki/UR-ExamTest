@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { env } from './config/env.js';
+import { env, isProd } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { setupSwagger } from './config/swagger.js';
 import { ApiError } from './utils/errors.js';
@@ -37,6 +37,11 @@ app.use(
         .split(',')
         .map((value) => value.trim())
         .filter(Boolean);
+      // Allow API's own origin for Swagger UI in development
+      if (!isProd) {
+        allowed.push('http://localhost:5000');
+        allowed.push('http://127.0.0.1:5000');
+      }
       if (!origin || allowed.includes(origin)) return callback(null, true);
       return callback(new ApiError(403, `Origin ${origin} is not allowed by CORS.`));
     },
